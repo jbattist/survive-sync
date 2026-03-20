@@ -1,0 +1,28 @@
+[Unit]
+Description=Calibre Offline Book Server
+Documentation=https://manual.calibre-ebook.com/server.html
+After=network-online.target srv-offline.mount
+Wants=network-online.target srv-offline.mount
+# Only start if the USB data drive is actually mounted
+ConditionPathIsMountPoint=/srv/offline
+
+[Service]
+Type=simple
+User=library
+Group=library
+
+# calibre-server creates an empty library if none exists yet — safe to start
+# before any books have been synced.
+ExecStart=/usr/bin/calibre-server \
+    --port 8081 \
+    --listen-on 0.0.0.0 \
+    /srv/offline/books/calibre-library
+
+Restart=on-failure
+RestartSec=10
+
+MemoryMax=512M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

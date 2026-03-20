@@ -1,0 +1,29 @@
+[Unit]
+Description=Kiwix Offline Content Server
+Documentation=https://www.kiwix.org
+After=network-online.target srv-offline.mount
+Wants=network-online.target srv-offline.mount
+# Only start if the USB data drive is actually mounted
+ConditionPathIsMountPoint=/srv/offline
+
+[Service]
+Type=simple
+User=library
+Group=library
+
+# kiwix-serve reads library.xml which is rebuilt by update-kiwix-library.sh
+# after each sync.  The stub library.xml created by install.sh lets the
+# service start cleanly before any ZIM files have been downloaded.
+ExecStart=/usr/bin/kiwix-serve \
+    --library /srv/offline/kiwix/library.xml \
+    --port 8080
+
+Restart=on-failure
+RestartSec=10
+
+# ZIM serving is mostly I/O bound
+MemoryMax=1G
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

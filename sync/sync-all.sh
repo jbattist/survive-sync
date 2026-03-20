@@ -15,8 +15,20 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_DIR="$(cd "${SCRIPT_DIR}/../config" && pwd)"
 POSTPROCESS_DIR="$(cd "${SCRIPT_DIR}/../postprocess" && pwd)"
-LOG_DIR="/srv/offline/logs"
+OFFLINE_ROOT="/srv/offline"
+LOG_DIR="${OFFLINE_ROOT}/logs"
 LOG_FILE="${LOG_DIR}/sync-$(date +%Y-%m-%d).log"
+
+# ── USB drive check ───────────────────────────────────────────────────────────
+# All content lives on the USB drive.  Abort immediately if it is not mounted
+# rather than filling the SD card or silently writing to the wrong place.
+if ! mountpoint -q "${OFFLINE_ROOT}" 2>/dev/null; then
+    echo "[$(date '+%H:%M:%S')] FATAL: ${OFFLINE_ROOT} is not mounted." >&2
+    echo "[$(date '+%H:%M:%S')] Is the USB drive connected?" >&2
+    echo "[$(date '+%H:%M:%S')] Check: systemctl status srv-offline.mount" >&2
+    echo "[$(date '+%H:%M:%S')] To mount manually: systemctl start srv-offline.mount" >&2
+    exit 1
+fi
 
 MODULES="${SYNC_MODULES:-zim pdfs books maps video}"
 

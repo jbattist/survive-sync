@@ -1,8 +1,10 @@
 [Unit]
 Description=MBTiles Offline Map Tile Server
 Documentation=https://github.com/consbio/mbtileserver
-After=network-online.target
-Wants=network-online.target
+After=network-online.target srv-offline.mount
+Wants=network-online.target srv-offline.mount
+# Only start if the USB data drive is actually mounted
+ConditionPathIsMountPoint=/srv/offline
 
 [Service]
 Type=simple

@@ -12,14 +12,16 @@
 #   ssh pi@survive 'cd ~/survive-sync && sudo bash install.sh'
 #
 # What this script does:
-#   1.  Checks dependencies; installs tilemaker, mbtileserver, yt-dlp if missing
-#   2.  Creates all required directories under /srv/offline
-#   3.  Copies scripts, configs, and portal assets to /srv/offline
-#   4.  Downloads MapLibre GL JS and OpenMapTiles fonts for offline map viewer
-#   5.  Installs systemd units for mbtileserver, survive-sync.service/.timer
-#   6.  Patches /etc/caddy/Caddyfile to add map tile and download routes
-#   7.  Patches /etc/nftables.conf to allow port 8082 (mbtileserver)
-#   8.  Reloads services
+#   1.  Checks dependencies; installs tilemaker, mbtileserver, kiwix-tools, calibre, yt-dlp if missing
+#   2.  Formats and mounts the USB data drive at /srv/offline (label: survive-data)
+#   3.  Creates all required directories under /srv/offline
+#   4.  Copies scripts, configs, and portal assets to /srv/offline
+#   5.  Downloads MapLibre GL JS and OpenMapTiles fonts for offline map viewer
+#   6.  Downloads MapLibre GL JS and OpenMapTiles fonts for offline map viewer
+#   7.  Installs systemd units for srv-offline.mount, mbtileserver, kiwix, calibre-server, survive-sync
+#   8.  Patches /etc/caddy/Caddyfile to add map tile and download routes
+#   9.  Patches /etc/nftables.conf to allow port 8082 (mbtileserver)
+#   10. Reloads services
 #
 # Idempotent — safe to re-run after updates.
 set -euo pipefail
@@ -174,6 +176,30 @@ else
     info "  mbtileserver: already installed"
 fi
 
+# kiwix-tools — ZIM file server (kiwix-serve + kiwix-manage)
+if ! command -v kiwix-serve &>/dev/null; then
+    info "  Installing kiwix-tools..."
+    # Try official repos first, then AUR
+    pacman -S --noconfirm --needed kiwix-tools 2>/dev/null || install_aur_pkg kiwix-tools
+    command -v kiwix-serve &>/dev/null && \
+        info "  kiwix-tools: installed" || \
+        warn "  kiwix-tools not found — install manually: yay -S kiwix-tools"
+else
+    info "  kiwix-tools: already installed"
+fi
+
+# calibre — ebook library server
+if ! command -v calibre-server &>/dev/null; then
+    info "  Installing calibre..."
+    pacman -S --noconfirm --needed calibre 2>/dev/null || \
+        warn "  calibre install failed — install manually: sudo pacman -S calibre"
+    command -v calibre-server &>/dev/null && \
+        info "  calibre: installed" || \
+        warn "  calibre-server not found after install attempt"
+else
+    info "  calibre: already installed"
+fi
+
 # yt-dlp — video downloader
 if ! command -v yt-dlp &>/dev/null; then
     info "  Installing yt-dlp..."
@@ -192,8 +218,66 @@ else
     info "  yt-dlp: already installed ($(yt-dlp --version 2>/dev/null || echo unknown))"
 fi
 
-# ── step 2: create directory structure ────────────────────────────────────────
-info "Step 2: Creating directory structure under ${OFFLINE_ROOT}"
+# ── step 2: set up USB data drive ─────────────────────────────────────────────
+info "Step 2: Setting up USB data drive (/srv/offline)"
+
+USB_DEV="/dev/sda"
+USB_LABEL="survive-data"
+
+setup_usb_drive() {
+    if [[ ! -b "${USB_DEV}" ]]; then
+        warn "  ${USB_DEV} not found — /srv/offline will use the SD card for now"
+        warn "  Connect the USB drive and re-run install.sh to move content to USB"
+        return 0
+    fi
+
+    # Check if already labelled — whole disk or first partition
+    local use_dev=""
+    for candidate in "${USB_DEV}" "${USB_DEV}1"; do
+        if [[ -b "${candidate}" ]] && \
+           blkid -s LABEL -o value "${candidate}" 2>/dev/null | grep -qx "${USB_LABEL}"; then
+            use_dev="${candidate}"
+            break
+        fi
+    done
+
+    if [[ -z "${use_dev}" ]]; then
+        info "  Formatting ${USB_DEV} as ext4 (label: ${USB_LABEL})..."
+        warn "  *** ALL EXISTING DATA ON ${USB_DEV} WILL BE ERASED ***"
+        # Format the whole disk directly — simpler for a dedicated single-purpose drive
+        mkfs.ext4 -F -L "${USB_LABEL}" -m 1 "${USB_DEV}" || {
+            warn "  mkfs.ext4 failed — /srv/offline will remain on SD card"
+            return 0
+        }
+        use_dev="${USB_DEV}"
+        info "  Formatted: ${use_dev} (ext4, label=${USB_LABEL})"
+    else
+        info "  ${use_dev}: already formatted (label=${USB_LABEL})"
+    fi
+
+    # Pre-install the systemd mount unit so we can start it right now.
+    # Step 7 will copy it again from the repo (idempotent).
+    cp "${SCRIPT_DIR}/systemd/srv-offline.mount" "${SYSTEMD_DIR}/"
+    systemctl daemon-reload
+
+    mkdir -p /srv/offline
+
+    if mountpoint -q /srv/offline 2>/dev/null; then
+        info "  /srv/offline: already mounted"
+    else
+        systemctl start srv-offline.mount && \
+            info "  /srv/offline: mounted from ${use_dev}" || \
+            warn "  Mount failed — check: systemctl status srv-offline.mount"
+    fi
+
+    mountpoint -q /srv/offline && \
+        systemctl enable srv-offline.mount 2>/dev/null && \
+        info "  srv-offline.mount: enabled (auto-mounts at boot)" || true
+}
+setup_usb_drive
+
+# ── step 3: create directory structure ────────────────────────────────────────
+info "Step 3: Creating directory structure under ${OFFLINE_ROOT}"
 
 # Ensure library user exists (spec §6)
 if ! id library &>/dev/null; then
@@ -250,8 +334,22 @@ for d in "${dirs[@]}"; do
 done
 info "  Directories: OK"
 
-# ── step 3: copy scripts and configs ──────────────────────────────────────────
-info "Step 3: Copying scripts and configs"
+# Create a stub kiwix library.xml if one does not exist yet.
+# kiwix-serve refuses to start without this file; real entries are added by
+# update-kiwix-library.sh after each sync.
+KIWIX_LIBRARY="/srv/offline/kiwix/library.xml"
+if [[ ! -f "${KIWIX_LIBRARY}" ]]; then
+    cat > "${KIWIX_LIBRARY}" <<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<library version="20110515" current="" id=""/>
+XML
+    info "  Created stub kiwix library.xml"
+else
+    info "  kiwix library.xml: already present"
+fi
+
+# ── step 4: copy scripts and configs ──────────────────────────────────────────
+info "Step 4: Copying scripts and configs"
 
 cp -r "${SCRIPT_DIR}/sync/."        "${SCRIPTS_DST}/sync/"
 cp -r "${SCRIPT_DIR}/config/."      "${SCRIPTS_DST}/config/"
@@ -271,8 +369,8 @@ cp -r "${SCRIPT_DIR}/portal/." "${PORTAL_DST}/"
 
 info "  Scripts and portal assets: OK"
 
-# ── step 4: download MapLibre GL JS (offline dependency) ─────────────────────
-info "Step 4: Downloading MapLibre GL JS for offline map viewer"
+# ── step 5: download MapLibre GL JS (offline dependency) ─────────────────────
+info "Step 5: Downloading MapLibre GL JS for offline map viewer"
 
 MAPLIBRE_JS="${PORTAL_DST}/maps/maplibre-gl.js"
 MAPLIBRE_CSS="${PORTAL_DST}/maps/maplibre-gl.css"
@@ -294,8 +392,8 @@ else
         warn "  Failed to download maplibre-gl.css"
 fi
 
-# ── step 5: download OpenMapTiles fonts for map labels ────────────────────────
-info "Step 5: Downloading OpenMapTiles fonts for offline map labels"
+# ── step 6: download OpenMapTiles fonts for map labels ────────────────────────
+info "Step 6: Downloading OpenMapTiles fonts for offline map labels"
 
 # Check if fonts are already installed (look for any .pbf glyph file)
 if find "${FONTS_DIR}" -name "*.pbf" -print -quit 2>/dev/null | grep -q .; then
@@ -354,14 +452,25 @@ sys.exit(0 if magic == b'PK\x03\x04' else 1)
     fi
 fi
 
-# ── step 6: install systemd units ─────────────────────────────────────────────
-info "Step 6: Installing systemd units"
+# ── step 7: install systemd units ─────────────────────────────────────────────
+info "Step 7: Installing systemd units"
 
-cp "${SCRIPT_DIR}/systemd/mbtileserver.service"  "${SYSTEMD_DIR}/"
-cp "${SCRIPT_DIR}/systemd/survive-sync.service"  "${SYSTEMD_DIR}/"
-cp "${SCRIPT_DIR}/systemd/survive-sync.timer"    "${SYSTEMD_DIR}/"
+cp "${SCRIPT_DIR}/systemd/srv-offline.mount"       "${SYSTEMD_DIR}/"
+cp "${SCRIPT_DIR}/systemd/kiwix.service"           "${SYSTEMD_DIR}/"
+cp "${SCRIPT_DIR}/systemd/calibre-server.service"  "${SYSTEMD_DIR}/"
+cp "${SCRIPT_DIR}/systemd/mbtileserver.service"    "${SYSTEMD_DIR}/"
+cp "${SCRIPT_DIR}/systemd/survive-sync.service"    "${SYSTEMD_DIR}/"
+cp "${SCRIPT_DIR}/systemd/survive-sync.timer"      "${SYSTEMD_DIR}/"
 
 systemctl daemon-reload
+
+systemctl enable --now kiwix.service && \
+    info "  kiwix.service: enabled and started" || \
+    warn "  kiwix.service: enable failed (check: systemctl status kiwix)"
+
+systemctl enable --now calibre-server.service && \
+    info "  calibre-server.service: enabled and started" || \
+    warn "  calibre-server.service: enable failed (check: systemctl status calibre-server)"
 
 systemctl enable --now mbtileserver.service && \
     info "  mbtileserver.service: enabled and started" || \
@@ -378,8 +487,8 @@ info "  Systemd units: OK"
 info "  Next sync: $(systemctl show survive-sync.timer --property=NextElapseUSecRealtime 2>/dev/null | cut -d= -f2 || echo unknown)"
 info "  Manual trigger: systemctl start survive-sync.service"
 
-# ── step 7: patch Caddyfile ───────────────────────────────────────────────────
-info "Step 7: Patching Caddy config"
+# ── step 8: patch Caddyfile ───────────────────────────────────────────────────
+info "Step 8: Patching Caddy config"
 
 if [[ ! -f "${CADDY_CONF}" ]]; then
     warn "  ${CADDY_CONF} not found — skipping Caddy patch"
@@ -454,8 +563,8 @@ PYEOF
     fi
 fi
 
-# ── step 8: patch nftables ────────────────────────────────────────────────────
-info "Step 8: Patching nftables for port 8082"
+# ── step 9: patch nftables ────────────────────────────────────────────────────
+info "Step 9: Patching nftables for port 8082"
 
 if [[ ! -f "${NFTABLES_CONF}" ]]; then
     warn "  ${NFTABLES_CONF} not found — skipping nftables patch"
@@ -510,13 +619,13 @@ PYEOF
     fi
 fi
 
-# ── step 9: ownership ─────────────────────────────────────────────────────────
-info "Step 9: Setting ownership"
+# ── step 10: ownership ────────────────────────────────────────────────────────
+info "Step 10: Setting ownership"
 chown -R library:library "${OFFLINE_ROOT}"
 info "  ${OFFLINE_ROOT}: owned by library:library"
 
-# ── step 10: allow library user to restart services via sudo ─────────────────
-info "Step 10: Configuring sudo for service restarts"
+# ── step 11: allow library user to restart services via sudo ──────────────────
+info "Step 11: Configuring sudo for service restarts"
 
 SUDOERS_FILE="/etc/sudoers.d/survive-sync"
 cat > "${SUDOERS_FILE}" <<'SUDOERS'
@@ -541,9 +650,12 @@ echo "Map tiles directory:   ${MAPS_TILES_DIR}"
 echo "Fonts directory:       ${FONTS_DIR}"
 echo ""
 echo "Systemd units installed:"
-echo "  mbtileserver.service  (running now on port 8082)"
-echo "  survive-sync.service  (oneshot — runs sync-all.sh)"
-echo "  survive-sync.timer    (weekly, Sunday 02:00)"
+echo "  srv-offline.mount      (auto-mounts USB drive at /srv/offline on boot)"
+echo "  kiwix.service          (port 8080 — Wikipedia/ZIM)"
+echo "  calibre-server.service (port 8081 — books)"
+echo "  mbtileserver.service   (running now on port 8082 — map tiles)"
+echo "  survive-sync.service   (oneshot — runs sync-all.sh)"
+echo "  survive-sync.timer     (weekly, Sunday 02:00)"
 echo ""
 echo "Run a sync manually:"
 echo "  systemctl start survive-sync.service"
