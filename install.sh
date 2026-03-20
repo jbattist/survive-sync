@@ -538,12 +538,19 @@ else
 }
 CADDYFILE
     info "  Caddyfile written to ${CADDY_CONF}"
+    _caddy_reload=true
 fi
 
-# Enable and start Caddy
+# Enable and start Caddy; reload config if we just wrote a new Caddyfile
 systemctl enable --now caddy 2>/dev/null && \
     info "  caddy.service: enabled and started" || \
     warn "  caddy enable failed — check: systemctl status caddy"
+
+if [[ "${_caddy_reload:-false}" == true ]]; then
+    systemctl reload caddy 2>/dev/null || systemctl restart caddy 2>/dev/null && \
+        info "  caddy: reloaded with new config" || \
+        warn "  caddy reload failed — run: sudo systemctl restart caddy"
+fi
 
 # ── step 9: open firewall ports for survive services ─────────────────────────
 info "Step 9: Opening firewall ports (80, 8080, 8081, 8082)"
