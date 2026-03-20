@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SURVIVE — Offline Maps</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<link rel="stylesheet" href="/maps/maplibre-gl.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    background: #1a1a1a;
+    color: #f0f0f0;
+  }
+
+  /* ── header ── */
+  #header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.5rem 1rem;
+    background: #111;
+    border-bottom: 1px solid #333;
+    flex-shrink: 0;
+  }
+  #header h1 { font-size: 1rem; font-weight: 600; letter-spacing: 0.05em; }
+  #header a { color: #888; font-size: 0.85rem; text-decoration: none; }
+  #header a:hover { color: #ccc; }
+
+  /* ── layer bar ── */
+  #layer-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 1rem;
+    background: #1e1e1e;
+    border-bottom: 1px solid #333;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  #layer-bar span { font-size: 0.8rem; color: #888; }
+  .layer-btn {
+    padding: 0.25rem 0.7rem;
+    font-size: 0.8rem;
+    border: 1px solid #444;
+    background: #2a2a2a;
+    color: #ccc;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .layer-btn:hover { background: #383838; color: #fff; }
+  .layer-btn.active { background: #c0392b; border-color: #c0392b; color: #fff; }
+
+  /* ── map ── */
+  #map { flex: 1; width: 100%; }
+
+  /* ── download bar ── */
+  #download-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 1rem;
+    background: #1a1a1a;
+    border-top: 1px solid #333;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    font-size: 0.8rem;
+  }
+  #download-bar span { color: #888; white-space: nowrap; }
+  .dl-link {
+    color: #5b9bd5;
+    text-decoration: none;
+    padding: 0.2rem 0.5rem;
+    border: 1px solid #334;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .dl-link:hover { background: #223; color: #7fb3e8; }
+
+  /* ── error / status overlay ── */
+  #status-overlay {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.85);
+    color: #f0f0f0;
+    padding: 1.5rem 2rem;
+    border-radius: 6px;
+    text-align: center;
+    z-index: 10;
+    max-width: 360px;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    pointer-events: none;
+  }
+  #map-wrap { position: relative; flex: 1; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>SURVIVE &mdash; Offline Maps</h1>
+  <a href="/">&#8592; Portal</a>
+</div>
+
+<div id="layer-bar">
+  <span>Layer:</span>
+  <button class="layer-btn active" data-state="massachusetts">Massachusetts</button>
+  <button class="layer-btn" data-state="connecticut">Connecticut</button>
+  <button class="layer-btn" data-state="rhode-island">Rhode Island</button>
+  <button class="layer-btn" data-state="new-hampshire">New Hampshire</button>
+  <button class="layer-btn" data-state="vermont">Vermont</button>
+  <button class="layer-btn" data-state="maine">Maine</button>
+  <button class="layer-btn" data-state="new-york">New York</button>
+</div>
+
+<div id="map-wrap">
+  <div id="map"></div>
+  <div id="status-overlay"></div>
+</div>
+
+<div id="download-bar">
+  <span>Download for phone (OsmAnd / Locus / MBTiles GPS):</span>
+  <a class="dl-link" href="/maps/download/connecticut.mbtiles">CT</a>
+  <a class="dl-link" href="/maps/download/maine.mbtiles">ME</a>
+  <a class="dl-link" href="/maps/download/massachusetts.mbtiles">MA</a>
+  <a class="dl-link" href="/maps/download/new-hampshire.mbtiles">NH</a>
+  <a class="dl-link" href="/maps/download/rhode-island.mbtiles">RI</a>
+  <a class="dl-link" href="/maps/download/vermont.mbtiles">VT</a>
+  <a class="dl-link" href="/maps/download/new-york.mbtiles">NY</a>
+</div>
+
+<script src="/maps/maplibre-gl.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // Center and zoom for New England
+  const NE_CENTER = [-71.5, 43.5];
+  const NE_ZOOM   = 7;
+
+  // Build a MapLibre style for a given state/tileset served by mbtileserver.
+  // mbtileserver exposes tiles at:
+  //   /maps/tiles/services/{name}/tiles/{z}/{x}/{y}.pbf
+  // and TileJSON at:
+  //   /maps/tiles/services/{name}
+  function buildStyle(stateName) {
+    return {
+      version: 8,
+      glyphs: '/maps/fonts/{fontstack}/{range}.pbf',
+      sources: {
+        osm: {
+          type: 'vector',
+          url: '/maps/tiles/services/' + stateName,
+          // TileJSON served by mbtileserver includes tiles, minzoom, maxzoom
+        }
+      },
+      layers: [
+        // ── background ──────────────────────────────────────────────────────
+        { id: 'background', type: 'background',
+          paint: { 'background-color': '#f2ede8' } },
+
+        // ── water ────────────────────────────────────────────────────────────
+        { id: 'water-fill', type: 'fill', source: 'osm', 'source-layer': 'water',
+          paint: { 'fill-color': '#a8d0e8' } },
+        { id: 'waterway', type: 'line', source: 'osm', 'source-layer': 'waterway',
+          paint: { 'line-color': '#a8d0e8', 'line-width': 1 } },
+
+        // ── land use ─────────────────────────────────────────────────────────
+        { id: 'landuse-park', type: 'fill', source: 'osm', 'source-layer': 'landuse',
+          filter: ['in', 'class', 'park', 'forest', 'grass', 'meadow', 'nature_reserve'],
+          paint: { 'fill-color': '#c8dfc8', 'fill-opacity': 0.7 } },
+        { id: 'landuse-residential', type: 'fill', source: 'osm', 'source-layer': 'landuse',
+          filter: ['in', 'class', 'residential', 'suburb'],
+          paint: { 'fill-color': '#ece8e2', 'fill-opacity': 0.6 } },
+        { id: 'landuse-industrial', type: 'fill', source: 'osm', 'source-layer': 'landuse',
+          filter: ['in', 'class', 'industrial', 'commercial'],
+          paint: { 'fill-color': '#ddd8cc', 'fill-opacity': 0.6 } },
+
+        // ── roads ────────────────────────────────────────────────────────────
+        // Casing (outline) for major roads
+        { id: 'road-motorway-casing', type: 'line', source: 'osm', 'source-layer': 'transportation',
+          filter: ['==', 'class', 'motorway'],
+          paint: { 'line-color': '#c87020', 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 2, 12, 7] },
+          layout: { 'line-join': 'round', 'line-cap': 'round' } },
+        { id: 'road-trunk-casing', type: 'line', source: 'osm', 'source-layer': 'transportation',
+          filter: ['==', 'class', 'trunk'],
+          paint: { 'line-color': '#c07820', 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 1, 12, 6] },
+          layout: { 'line-join': 'round', 'line-cap': 'round' } },
+
+        // Fill for major roads
+        { id: 'road-motorway-fill', type: 'line', source: 'osm', 'source-layer': 'transportation',
+          filter: ['==', 'class', 'motorway'],
+          paint: { 'line-color': '#f08030', 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 1, 12, 5] },
+          layout: { 'line-join': 'round', 'line-cap': 'round' } },
+        { id: 'road-trunk-fill', type: 'line', source: 'osm', 'source-layer': 'transportation',
+          filter: ['==', 'class', 'trunk'],
+          paint: { 'line-color': '#f0a040', 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 0.5, 12, 4] },
+          layout: { 'line-join': 'round', 'line-cap': 'round' } },
+        { id: 'road-primary', type: 'line', source: 'osm', 'source-layer': 'transportation',
+          filter: ['==', 'class', 'primary'],
+          paint: { 'line-color': '#f5d060', 'line-width': ['interpolate', ['linear'], ['zoom'], 7, 0.8, 14, 4] },
+          layout: { 'line-join': 'round', 'line-cap': 'round' } },
+        { id: 'road-secondary', type: 'line', source: 'osm', 'source-layer': 'transportation',
+          filter: ['in', 'class', 'secondary', 'tertiary'],
+          paint: { 'line-color': '#e8e0c8', 'line-width': ['interpolate', ['linear'], ['zoom'], 9, 0.5, 14, 3] },
+          layout: { 'line-join': 'round', 'line-cap': 'round' } },
+        { id: 'road-minor', type: 'line', source: 'osm', 'source-layer': 'transportation',
+          filter: ['in', 'class', 'minor', 'residential', 'service', 'unclassified'],
+          minzoom: 12,
+          paint: { 'line-color': '#d8d0c0', 'line-width': 1 },
+          layout: { 'line-join': 'round', 'line-cap': 'round' } },
+        { id: 'road-path', type: 'line', source: 'osm', 'source-layer': 'transportation',
+          filter: ['in', 'class', 'path', 'track', 'footway'],
+          minzoom: 13,
+          paint: { 'line-color': '#b8b0a0', 'line-width': 0.8, 'line-dasharray': [3, 2] } },
+
+        // ── railways ─────────────────────────────────────────────────────────
+        { id: 'railway', type: 'line', source: 'osm', 'source-layer': 'transportation',
+          filter: ['==', 'class', 'rail'],
+          minzoom: 9,
+          paint: { 'line-color': '#888', 'line-width': 1.5, 'line-dasharray': [4, 2] } },
+
+        // ── buildings ────────────────────────────────────────────────────────
+        { id: 'buildings', type: 'fill', source: 'osm', 'source-layer': 'building',
+          minzoom: 14,
+          paint: { 'fill-color': '#ccc8c0', 'fill-outline-color': '#aaa8a0' } },
+
+        // ── place labels ─────────────────────────────────────────────────────
+        // (require fonts downloaded by install.sh)
+        { id: 'place-city', type: 'symbol', source: 'osm', 'source-layer': 'place',
+          filter: ['in', 'class', 'city', 'town'],
+          minzoom: 6,
+          layout: {
+            'text-field': ['get', 'name'],
+            'text-font': ['Noto Sans Regular'],
+            'text-size': ['interpolate', ['linear'], ['zoom'], 6, 11, 12, 15],
+            'text-anchor': 'center',
+            'text-max-width': 8
+          },
+          paint: { 'text-color': '#333', 'text-halo-color': '#fff', 'text-halo-width': 1.5 } },
+        { id: 'place-village', type: 'symbol', source: 'osm', 'source-layer': 'place',
+          filter: ['in', 'class', 'village', 'hamlet', 'suburb'],
+          minzoom: 10,
+          layout: {
+            'text-field': ['get', 'name'],
+            'text-font': ['Noto Sans Regular'],
+            'text-size': 11,
+            'text-anchor': 'center'
+          },
+          paint: { 'text-color': '#555', 'text-halo-color': '#fff', 'text-halo-width': 1 } },
+
+        // ── road labels ──────────────────────────────────────────────────────
+        { id: 'road-label', type: 'symbol', source: 'osm', 'source-layer': 'transportation_name',
+          minzoom: 12,
+          layout: {
+            'text-field': ['get', 'name'],
+            'text-font': ['Noto Sans Regular'],
+            'text-size': 10,
+            'symbol-placement': 'line',
+            'text-max-angle': 30
+          },
+          paint: { 'text-color': '#444', 'text-halo-color': '#fff', 'text-halo-width': 1 } },
+
+        // ── water labels ─────────────────────────────────────────────────────
+        { id: 'water-label', type: 'symbol', source: 'osm', 'source-layer': 'water_name',
+          minzoom: 8,
+          layout: {
+            'text-field': ['get', 'name'],
+            'text-font': ['Noto Sans Italic'],
+            'text-size': 11,
+            'symbol-placement': 'point'
+          },
+          paint: { 'text-color': '#5080a0', 'text-halo-color': '#d8ecf8', 'text-halo-width': 1 } }
+      ]
+    };
+  }
+
+  // ── map init ────────────────────────────────────────────────────────────────
+  let currentState = 'massachusetts';
+  const statusEl   = document.getElementById('status-overlay');
+
+  const map = new maplibregl.Map({
+    container: 'map',
+    style: buildStyle(currentState),
+    center: NE_CENTER,
+    zoom:   NE_ZOOM,
+    attributionControl: false
+  });
+
+  map.addControl(new maplibregl.NavigationControl(), 'top-right');
+  map.addControl(new maplibregl.ScaleControl({ unit: 'imperial' }), 'bottom-left');
+  map.addControl(new maplibregl.GeolocateControl({
+    positionOptions: { enableHighAccuracy: true },
+    trackUserLocation: true
+  }), 'top-right');
+
+  function showStatus(msg) {
+    statusEl.style.display = msg ? 'block' : 'none';
+    statusEl.textContent   = msg || '';
+  }
+
+  map.on('error', function (e) {
+    // Tile 404s are expected when a layer hasn't been generated yet
+    if (e.error && e.error.status === 404) {
+      showStatus(
+        'Map tiles not yet available for ' + currentState + '.\n' +
+        'Run the sync agent to generate tiles:\n' +
+        'systemctl start survive-sync.service'
+      );
+    }
+  });
+
+  map.on('load', function () { showStatus(''); });
+
+  // ── layer switching ─────────────────────────────────────────────────────────
+  function loadState(stateName) {
+    currentState = stateName;
+    showStatus('Loading ' + stateName + '…');
+    map.setStyle(buildStyle(stateName));
+    map.once('styledata', function () { showStatus(''); });
+  }
+
+  document.querySelectorAll('.layer-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.layer-btn').forEach(function (b) {
+        b.classList.remove('active');
+      });
+      btn.classList.add('active');
+      loadState(btn.dataset.state);
+    });
+  });
+
+  // ── check tile server availability on load ──────────────────────────────────
+  fetch('/maps/tiles/services/' + currentState)
+    .then(function (r) {
+      if (!r.ok) {
+        showStatus(
+          'Tile server not responding.\n\n' +
+          'Check: systemctl status mbtileserver\n' +
+          'And run the sync agent to generate map tiles.'
+        );
+      }
+    })
+    .catch(function () {
+      showStatus(
+        'Cannot reach map tile server.\n\n' +
+        'Ensure mbtileserver is running:\n' +
+        'systemctl start mbtileserver'
+      );
+    });
+
+})();
+</script>
+</body>
+</html>

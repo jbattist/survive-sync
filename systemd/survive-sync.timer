@@ -1,0 +1,20 @@
+[Unit]
+Description=Weekly Survive Library Sync Timer
+Documentation=file:///srv/offline/scripts/sync/sync-all.sh
+
+[Timer]
+# Run every Sunday at 02:00 local time
+OnCalendar=Sun *-*-* 02:00:00
+
+# If the Pi was offline at trigger time (e.g. in field mode), catch up
+# and run the sync the next time internet is available after boot.
+Persistent=true
+
+# Add a random delay of up to 15 minutes to avoid thundering-herd if
+# multiple nodes are syncing from the same upstream.
+RandomizedDelaySec=900
+
+Unit=survive-sync.service
+
+[Install]
+WantedBy=timers.target

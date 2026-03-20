@@ -1,0 +1,28 @@
+[Unit]
+Description=MBTiles Offline Map Tile Server
+Documentation=https://github.com/consbio/mbtileserver
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=library
+Group=library
+
+# mbtileserver serves all .mbtiles files found in --dir at startup.
+# Tiles are available at /services/{filename_without_ext}/tiles/{z}/{x}/{y}.pbf
+# TileJSON at /services/{filename_without_ext}
+ExecStart=/usr/bin/mbtileserver \
+    --port 8082 \
+    --dir /srv/offline/maps/tiles \
+    --verbose
+
+Restart=on-failure
+RestartSec=5
+
+# Resource limits — tile serving is mostly I/O bound
+MemoryMax=512M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

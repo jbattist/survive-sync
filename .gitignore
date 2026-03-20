@@ -1,0 +1,20 @@
+# Editor and OS cruft
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Runtime files that install.sh or the sync scripts produce on the Pi
+# (these live under /srv/offline, not in the repo, but just in case)
+*.log
+*.pid
+
+# Secrets that must never be committed
+.env
+*.pem
+*.key
+id_rsa
+id_ed25519

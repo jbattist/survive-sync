@@ -1,0 +1,32 @@
+[Unit]
+Description=Survive Library Sync Agent
+Documentation=file:///srv/offline/scripts/sync/sync-all.sh
+# Requires internet — wait for a routable network connection
+After=network-online.target
+Wants=network-online.target
+# Do not run while AP mode is active and serving clients (best-effort)
+# The sync script itself checks for connectivity before downloading.
+
+[Service]
+Type=oneshot
+# Run as library user; sudo is used only for service restarts via systemctl
+User=library
+Group=library
+
+# Pass the scripts location via environment so sync-all.sh can find siblings
+Environment=SCRIPT_DIR=/srv/offline/scripts/sync
+ExecStart=/srv/offline/scripts/sync/sync-all.sh
+
+# Allow the sync to take a very long time (Wikipedia ZIM is ~100 GB)
+TimeoutStartSec=0
+TimeoutStopSec=600
+
+# Log to journal; view with: journalctl -u survive-sync -f
+StandardOutput=journal
+StandardError=journal
+
+# Prevent OOM kill during large downloads
+OOMScoreAdjust=-100
+
+[Install]
+WantedBy=multi-user.target
