@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Install &amp; Ops Guide — SURVIVE</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    .page {
+      width: 100%;
+      max-width: 860px;
+    }
+
+    .back {
+      display: inline-block;
+      margin-bottom: 1.5rem;
+      color: #888;
+      text-decoration: none;
+      font-size: 0.85rem;
+      letter-spacing: 0.04em;
+    }
+    .back:hover { color: #ff4444; }
+
+    header {
+      margin-bottom: 2rem;
+      border-bottom: 1px solid #333;
+      padding-bottom: 1.25rem;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: #ff4444;
+      text-transform: uppercase;
+    }
+
+    header .subtitle {
+      margin-top: 0.35rem;
+      color: #888;
+      font-size: 0.85rem;
+    }
+
+    h2 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #ff4444;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin: 2rem 0 0.75rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid #2e2e2e;
+    }
+
+    h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #ccc;
+      margin: 1.25rem 0 0.5rem;
+    }
+
+    p {
+      font-size: 0.9rem;
+      line-height: 1.7;
+      color: #ccc;
+      margin-bottom: 0.75rem;
+    }
+
+    strong { color: #e0e0e0; }
+
+    a { color: #ff9999; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+    }
+
+    th {
+      text-align: left;
+      padding: 0.45rem 0.75rem;
+      background: #242424;
+      color: #ff4444;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid #333;
+    }
+
+    td {
+      padding: 0.45rem 0.75rem;
+      border-bottom: 1px solid #2a2a2a;
+      color: #ccc;
+      vertical-align: top;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    pre {
+      background: #111;
+      border: 1px solid #2e2e2e;
+      border-radius: 6px;
+      padding: 1rem 1.1rem;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      overflow-x: auto;
+      margin-bottom: 1rem;
+      color: #b0b0b0;
+    }
+
+    code {
+      font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+    }
+
+    pre code { color: #b0b0b0; }
+
+    .inline-code {
+      background: #252525;
+      border: 1px solid #333;
+      border-radius: 3px;
+      padding: 0.1em 0.4em;
+      font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+      font-size: 0.82em;
+      color: #e0e0e0;
+    }
+
+    .note {
+      background: #1e1e14;
+      border-left: 3px solid #aa8800;
+      padding: 0.6rem 1rem;
+      border-radius: 0 4px 4px 0;
+      font-size: 0.85rem;
+      color: #ccc;
+      margin-bottom: 1rem;
+    }
+
+    ul, ol {
+      margin: 0.5rem 0 0.75rem 1.4rem;
+      font-size: 0.88rem;
+      color: #ccc;
+      line-height: 1.7;
+    }
+
+    .dir-tree {
+      background: #111;
+      border: 1px solid #2e2e2e;
+      border-radius: 6px;
+      padding: 1rem 1.1rem;
+      font-size: 0.82rem;
+      line-height: 1.7;
+      overflow-x: auto;
+      margin-bottom: 1rem;
+      color: #b0b0b0;
+      font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+    }
+
+    footer {
+      margin-top: 3rem;
+      color: #444;
+      font-size: 0.8rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <a class="back" href="/">&larr; Back to portal</a>
+
+  <header>
+    <h1>Install &amp; Ops Guide</h1>
+    <div class="subtitle">SURVIVE Offline Library Appliance &mdash; Last Updated: March 2026</div>
+  </header>
+
+  <!-- HARDWARE -->
+  <h2>Hardware</h2>
+
+  <table>
+    <tr><th>Component</th><th>Spec</th></tr>
+    <tr><td>Board</td><td>Raspberry Pi 5 8GB</td></tr>
+    <tr><td>Boot</td><td>64GB microSD</td></tr>
+    <tr><td>Data</td><td>2TB external SSD, ext4, label <span class="inline-code">survive-data</span>, mounted at <span class="inline-code">/srv/offline</span></td></tr>
+    <tr><td>OS</td><td>EndeavourOS ARM (aarch64)</td></tr>
+    <tr><td>Hostname</td><td><span class="inline-code">survive</span></td></tr>
+    <tr><td>Travel IP</td><td>192.168.8.2 (static DHCP on Beryl)</td></tr>
+    <tr><td>DNS name</td><td><span class="inline-code">survive.travel</span> (Pi-hole static entry)</td></tr>
+    <tr><td>Content user</td><td><span class="inline-code">library</span> (system user, owns <span class="inline-code">/srv/offline</span>)</td></tr>
+  </table>
+
+  <!-- ARCHITECTURE -->
+  <h2>Architecture</h2>
+
+  <p>All content services run internally and are reverse-proxied by Caddy on port 80.
+  No raw service ports are exposed to clients.</p>
+
+  <table>
+    <tr><th>Service</th><th>Internal Port</th><th>Public Path</th><th>Description</th></tr>
+    <tr><td>Caddy</td><td>80</td><td>&mdash;</td><td>Reverse proxy + static portal</td></tr>
+    <tr><td>Kiwix</td><td>8080</td><td><span class="inline-code">/wiki/</span></td><td>Wikipedia + ZIM files</td></tr>
+    <tr><td>Calibre</td><td>8081</td><td><span class="inline-code">/books/</span></td><td>Ebook library</td></tr>
+    <tr><td>mbtileserver</td><td>8082</td><td><span class="inline-code">/maps/tiles/</span></td><td>Map tile server</td></tr>
+    <tr><td>&mdash;</td><td>&mdash;</td><td><span class="inline-code">/pdfs/</span></td><td>PDF guides (static files)</td></tr>
+    <tr><td>&mdash;</td><td>&mdash;</td><td><span class="inline-code">/video/</span></td><td>Video files (static files)</td></tr>
+    <tr><td>&mdash;</td><td>&mdash;</td><td><span class="inline-code">/maps/download/</span></td><td>.mbtiles downloads for OsmAnd/Locus</td></tr>
+  </table>
+
+  <!-- CONTENT LAYOUT -->
+  <h2>Content Layout</h2>
+
+<div class="dir-tree">/srv/offline/
+├── portal/             web portal static files (served by Caddy)
+│   ├── index.html
+│   ├── docs/
+│   └── maps/           MapLibre GL JS viewer
+├── kiwix/
+│   ├── library.xml     rebuilt by update-kiwix-library.sh after each sync
+│   └── zim/            *.zim files (Wikipedia ~100GB, Wiktionary, Simple Wikipedia)
+├── pdfs/
+│   ├── 00-start-here/
+│   ├── 01-medical/
+│   ├── 02-water/
+│   ├── 03-food/
+│   ├── 04-agriculture/
+│   ├── 05-shelter/
+│   ├── 06-power/
+│   ├── 07-repair/
+│   ├── 08-comms/
+│   ├── 09-navigation/
+│   ├── 10-security/
+│   ├── 11-reference/
+│   └── 12-technology/
+├── books/
+│   ├── calibre-library/    Calibre database (metadata.db + book files)
+│   └── epub/
+├── maps/
+│   ├── tiles/          *.mbtiles files (US Northeast: CT ME MA NH RI VT NY)
+│   ├── pbf/            Geofabrik OSM PBF source files
+│   └── topo/
+├── video/
+│   ├── first-aid/
+│   ├── repair/
+│   ├── power/
+│   ├── food/
+│   └── morale/
+├── scripts/            sync scripts and configs
+└── logs/</div>
+
+  <!-- FRESH INSTALL -->
+  <h2>Fresh Install</h2>
+
+  <h3>Prerequisites</h3>
+  <ul>
+    <li>Pi 5 booted with EndeavourOS ARM on microSD</li>
+    <li>2TB SSD connected via USB</li>
+    <li>Pi reachable on the network (ethernet)</li>
+  </ul>
+
+  <h3>Steps</h3>
+
+<pre><code># On the Pi
+git clone git@github.com:jbattist/survive-sync.git ~/survive-sync
+cd ~/survive-sync
+sudo bash install.sh</code></pre>
+
+  <p>If packages fail to install (stale package DB):</p>
+<pre><code>yay -Syu
+sudo bash install.sh</code></pre>
+
+  <div class="note"><strong>install.sh is idempotent</strong> &mdash; safe to re-run after updates or to fix partial failures.</div>
+
+  <h3>What install.sh Does</h3>
+  <ol>
+    <li>Installs packages: <span class="inline-code">tilemaker</span> (built from source on aarch64), <span class="inline-code">mbtileserver</span> (via <span class="inline-code">go install</span>), <span class="inline-code">kiwix-tools</span>, <span class="inline-code">calibre</span>, <span class="inline-code">yt-dlp</span>, <span class="inline-code">caddy</span></li>
+    <li>Formats/mounts USB SSD at <span class="inline-code">/srv/offline</span> (ext4, label <span class="inline-code">survive-data</span>)</li>
+    <li>Creates full directory structure under <span class="inline-code">/srv/offline</span></li>
+    <li>Initializes empty Calibre library (<span class="inline-code">metadata.db</span>)</li>
+    <li>Copies scripts, configs, and portal assets</li>
+    <li>Downloads MapLibre GL JS and OpenMapTiles fonts (offline map viewer)</li>
+    <li>Installs and restarts systemd units</li>
+    <li>Writes <span class="inline-code">/etc/caddy/Caddyfile</span> (always overwrites) and restarts Caddy</li>
+    <li>Opens firewall ports (firewalld: adds ports to public + internal zones)</li>
+    <li>Sets ownership: <span class="inline-code">chown -R library:library /srv/offline</span></li>
+    <li>Configures <span class="inline-code">sudo</span> for <span class="inline-code">library</span> user service restarts</li>
+    <li>Installs <span class="inline-code">/etc/profile.d/survive-welcome.sh</span> (login banner)</li>
+  </ol>
+
+  <!-- SYNC -->
+  <h2>Sync</h2>
+
+  <h3>Run a Full Sync</h3>
+<pre><code>sudo systemctl start survive-sync.service
+journalctl -u survive-sync -f          # Ctrl+C to detach, sync keeps running</code></pre>
+
+  <h3>Run Specific Modules Only</h3>
+<pre><code>SYNC_MODULES='pdfs books' sudo systemctl start survive-sync.service
+# modules: zim pdfs books maps video</code></pre>
+
+  <h3>Timer</h3>
+  <p>Runs automatically every Sunday at 02:00. <span class="inline-code">Persistent=true</span> &mdash; if the Pi was off, it catches up on next boot.</p>
+<pre><code>systemctl list-timers survive-sync.timer</code></pre>
+
+  <h3>Check Sync Status</h3>
+<pre><code>journalctl -u survive-sync -n 100 --no-pager
+systemctl status survive-sync</code></pre>
+
+  <!-- SERVICE MANAGEMENT -->
+  <h2>Service Management</h2>
+
+  <h3>Status at a Glance</h3>
+<pre><code>systemctl status caddy kiwix calibre-server mbtileserver --no-pager</code></pre>
+
+  <h3>Restart All Services</h3>
+<pre><code>sudo systemctl restart caddy kiwix calibre-server mbtileserver</code></pre>
+
+  <h3>Restart Individual Service</h3>
+<pre><code>sudo systemctl restart caddy
+sudo systemctl restart kiwix
+sudo systemctl restart calibre-server
+sudo systemctl restart mbtileserver</code></pre>
+
+  <h3>View Logs</h3>
+<pre><code>journalctl -u caddy -f
+journalctl -u kiwix -f
+journalctl -u calibre-server -f
+journalctl -u mbtileserver -f</code></pre>
+
+  <!-- TROUBLESHOOTING -->
+  <h2>Troubleshooting</h2>
+
+  <h3>Caddy serving its default page instead of the portal</h3>
+  <p>Caddy has the old config loaded in memory. Restart it:</p>
+<pre><code>sudo systemctl restart caddy</code></pre>
+
+  <p>If the Caddyfile itself looks wrong:</p>
+<pre><code>cat /etc/caddy/Caddyfile     # should contain 'survive-sync' marker
+sudo bash ~/survive-sync/install.sh   # step 8 always rewrites it</code></pre>
+
+  <h3>Books &mdash; 502 Bad Gateway</h3>
+  <p>Calibre isn't running. Check why:</p>
+<pre><code>systemctl status calibre-server
+journalctl -u calibre-server -n 30 --no-pager</code></pre>
+
+  <p><strong>"There is no calibre library"</strong> &mdash; library was never initialized:</p>
+<pre><code>sudo chown library:library /srv/offline/books/calibre-library
+_tmp=$(mktemp /tmp/XXXXXX.txt)
+sudo -u library calibredb add --with-library /srv/offline/books/calibre-library "$_tmp"
+sudo -u library calibredb remove --with-library /srv/offline/books/calibre-library 1
+rm "$_tmp"
+sudo systemctl restart calibre-server</code></pre>
+
+  <h3>Wikipedia &mdash; 502 Bad Gateway</h3>
+<pre><code>systemctl status kiwix
+journalctl -u kiwix -n 30 --no-pager</code></pre>
+
+  <p>No ZIM files yet &mdash; sync hasn't finished. Check progress:</p>
+<pre><code>ls -lh /srv/offline/kiwix/zim/
+journalctl -u survive-sync -n 50 --no-pager</code></pre>
+
+  <h3>Maps not loading</h3>
+<pre><code>systemctl status mbtileserver
+ls /srv/offline/maps/tiles/*.mbtiles    # files must exist</code></pre>
+  <p>If no <span class="inline-code">.mbtiles</span> files: maps sync hasn't run or failed. Check sync logs.</p>
+
+  <h3>/srv/offline not mounted</h3>
+  <p>The SSD isn't mounted. All services depend on it:</p>
+<pre><code>lsblk
+systemctl status srv-offline.mount
+sudo systemctl start srv-offline.mount</code></pre>
+
+  <p>Check that the SSD label is <span class="inline-code">survive-data</span>:</p>
+<pre><code>lsblk -o NAME,LABEL,MOUNTPOINT</code></pre>
+
+  <p>If label is missing (drive was reformatted):</p>
+<pre><code>sudo e2label /dev/sda survive-data
+sudo systemctl start srv-offline.mount</code></pre>
+
+  <h3>Packages fail to install</h3>
+  <p>Package DB is stale &mdash; sync it first:</p>
+<pre><code>yay -Syu
+sudo bash install.sh</code></pre>
+
+  <h3>tilemaker or mbtileserver missing after install</h3>
+  <p>On aarch64, these aren't in the standard repos. <span class="inline-code">install.sh</span> handles them:</p>
+  <ul>
+    <li><span class="inline-code">tilemaker</span>: built from source via cmake (~10 min)</li>
+    <li><span class="inline-code">mbtileserver</span>: installed via <span class="inline-code">go install</span></li>
+  </ul>
+  <p>If still missing after a failed install run:</p>
+<pre><code># tilemaker
+sudo pacman -S --noconfirm --needed base-devel cmake git boost boost-libs protobuf shapelib rapidjson luajit sqlite zlib
+git clone --depth=1 https://github.com/systemed/tilemaker.git /tmp/tilemaker-src
+cmake -S /tmp/tilemaker-src -B /tmp/tilemaker-src/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+cmake --build /tmp/tilemaker-src/build --parallel $(nproc)
+sudo cmake --install /tmp/tilemaker-src/build
+
+# mbtileserver
+sudo pacman -S --noconfirm --needed go
+sudo GOPATH=/usr/local go install github.com/consbio/mbtileserver@latest
+sudo ln -sf /usr/local/bin/mbtileserver /usr/bin/mbtileserver</code></pre>
+
+  <h3>OpenMapTiles fonts missing (map labels blank)</h3>
+<pre><code>ls /srv/offline/portal/maps/fonts/    # should have font directories
+sudo bash install.sh                  # step 6 retries font download</code></pre>
+
+  <h3>Firewall blocking services</h3>
+<pre><code>sudo firewall-cmd --list-all
+sudo firewall-cmd --zone=internal --list-all</code></pre>
+
+  <p>Manually open if needed:</p>
+<pre><code>sudo firewall-cmd --permanent --add-service=http
+sudo firewall-cmd --permanent --add-port=8080/tcp
+sudo firewall-cmd --permanent --add-port=8081/tcp
+sudo firewall-cmd --permanent --add-port=8082/tcp
+sudo firewall-cmd --reload</code></pre>
+
+  <!-- REBUILD FROM SCRATCH -->
+  <h2>Rebuild From Scratch</h2>
+
+  <p>If the SD card dies or the OS needs to be reflashed:</p>
+  <ol>
+    <li>Flash EndeavourOS ARM to a new 64GB microSD</li>
+    <li>Boot Pi &mdash; the 2TB SSD data survives (it's a separate drive)</li>
+    <li><span class="inline-code">git clone git@github.com:jbattist/survive-sync.git ~/survive-sync</span></li>
+    <li><span class="inline-code">sudo bash ~/survive-sync/install.sh</span></li>
+  </ol>
+  <p>All content on <span class="inline-code">/srv/offline</span> is preserved. Only the OS and services need to be reinstalled.</p>
+
+  <!-- SYSTEMD UNITS -->
+  <h2>Systemd Units</h2>
+
+  <table>
+    <tr><th>Unit</th><th>Purpose</th></tr>
+    <tr><td><span class="inline-code">srv-offline.mount</span></td><td>Mounts USB SSD at <span class="inline-code">/srv/offline</span> by label</td></tr>
+    <tr><td><span class="inline-code">kiwix.service</span></td><td>Kiwix ZIM server, port 8080, depends on mount</td></tr>
+    <tr><td><span class="inline-code">calibre-server.service</span></td><td>Calibre ebook server, port 8081, depends on mount</td></tr>
+    <tr><td><span class="inline-code">mbtileserver.service</span></td><td>Map tile server, port 8082, depends on mount</td></tr>
+    <tr><td><span class="inline-code">caddy.service</span></td><td>Reverse proxy and portal, port 80</td></tr>
+    <tr><td><span class="inline-code">survive-sync.service</span></td><td>Oneshot sync job (runs <span class="inline-code">sync-all.sh</span>)</td></tr>
+    <tr><td><span class="inline-code">survive-sync.timer</span></td><td>Weekly timer, Sunday 02:00, Persistent=true</td></tr>
+  </table>
+
+  <p>All unit files live in <span class="inline-code">/etc/systemd/system/</span> and are sourced from this repo at <span class="inline-code">systemd/</span>.</p>
+
+  <!-- REPO LAYOUT -->
+  <h2>Repo Layout</h2>
+
+<div class="dir-tree">survive-sync/
+├── install.sh                  deploy script — run with: sudo bash install.sh
+├── SURVIVE.md                  install/ops/troubleshoot guide
+├── NETWORK.md                  network/VPN setup guide
+├── portal/                     web portal (copied to /srv/offline/portal/)
+│   ├── index.html
+│   ├── docs/
+│   └── maps/index.html
+├── config/                     sync source lists
+│   ├── zim-list.conf
+│   ├── pdf-sources.conf
+│   ├── book-list.conf
+│   ├── video-list.conf
+│   └── map-regions.conf
+├── sync/                       sync scripts (run by survive-sync.service)
+│   ├── sync-all.sh
+│   ├── sync-zim.sh
+│   ├── sync-pdfs.sh
+│   ├── sync-books.sh
+│   ├── sync-maps.sh
+│   └── sync-video.sh
+├── postprocess/
+│   ├── update-kiwix-library.sh
+│   ├── update-catalog.sh
+│   └── rebuild-indexes.sh
+├── scripts/
+│   └── survive-welcome.sh      login banner → /etc/profile.d/
+└── systemd/                    unit files → /etc/systemd/system/</div>
+
+  <footer>
+    <p>SURVIVE &mdash; <span id="host"></span></p>
+    <script>document.getElementById('host').textContent = window.location.hostname;</script>
+  </footer>
+
+</div>
+</body>
+</html>

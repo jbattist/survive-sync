@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Docs — SURVIVE</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    .page {
+      width: 100%;
+      max-width: 860px;
+    }
+
+    .back {
+      display: inline-block;
+      margin-bottom: 1.5rem;
+      color: #888;
+      text-decoration: none;
+      font-size: 0.85rem;
+      letter-spacing: 0.04em;
+    }
+    .back:hover { color: #ff4444; }
+
+    header {
+      margin-bottom: 2rem;
+      border-bottom: 1px solid #333;
+      padding-bottom: 1.25rem;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: #ff4444;
+      text-transform: uppercase;
+    }
+
+    header .subtitle {
+      margin-top: 0.35rem;
+      color: #888;
+      font-size: 0.85rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1.25rem;
+      width: 100%;
+    }
+
+    .card {
+      background: #242424;
+      border: 1px solid #333;
+      border-radius: 10px;
+      padding: 1.5rem;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .card:hover {
+      border-color: #ff4444;
+      background: #2c2020;
+    }
+
+    .card .icon { font-size: 2rem; }
+
+    .card .title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .card .desc {
+      font-size: 0.85rem;
+      color: #888;
+      line-height: 1.4;
+    }
+
+    footer {
+      margin-top: 3rem;
+      color: #444;
+      font-size: 0.8rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <a class="back" href="/">&larr; Back to portal</a>
+
+  <header>
+    <h1>Docs</h1>
+    <div class="subtitle">Install, operations, troubleshooting, and network reference</div>
+  </header>
+
+  <div class="grid">
+
+    <a class="card" href="/docs/install.html">
+      <span class="icon">🔧</span>
+      <span class="title">Install &amp; Ops Guide</span>
+      <span class="desc">Fresh install, service management, sync, troubleshooting, and rebuild instructions</span>
+    </a>
+
+    <a class="card" href="/docs/network.html">
+      <span class="icon">🌐</span>
+      <span class="title">Network Guide</span>
+      <span class="desc">WireGuard split tunnel, DNS, Beryl config, Pi-hole setup, and verification</span>
+    </a>
+
+  </div>
+
+  <footer>
+    <p>SURVIVE &mdash; <span id="host"></span></p>
+    <script>document.getElementById('host').textContent = window.location.hostname;</script>
+  </footer>
+
+</div>
+</body>
+</html>

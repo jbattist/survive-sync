@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Network Guide — SURVIVE</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    .page {
+      width: 100%;
+      max-width: 860px;
+    }
+
+    .back {
+      display: inline-block;
+      margin-bottom: 1.5rem;
+      color: #888;
+      text-decoration: none;
+      font-size: 0.85rem;
+      letter-spacing: 0.04em;
+    }
+    .back:hover { color: #ff4444; }
+
+    header {
+      margin-bottom: 2rem;
+      border-bottom: 1px solid #333;
+      padding-bottom: 1.25rem;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: #ff4444;
+      text-transform: uppercase;
+    }
+
+    header .subtitle {
+      margin-top: 0.35rem;
+      color: #888;
+      font-size: 0.85rem;
+    }
+
+    h2 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #ff4444;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin: 2rem 0 0.75rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid #2e2e2e;
+    }
+
+    h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #ccc;
+      margin: 1.25rem 0 0.5rem;
+    }
+
+    p {
+      font-size: 0.9rem;
+      line-height: 1.7;
+      color: #ccc;
+      margin-bottom: 0.75rem;
+    }
+
+    strong { color: #e0e0e0; }
+
+    a { color: #ff9999; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+    }
+
+    th {
+      text-align: left;
+      padding: 0.45rem 0.75rem;
+      background: #242424;
+      color: #ff4444;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid #333;
+    }
+
+    td {
+      padding: 0.45rem 0.75rem;
+      border-bottom: 1px solid #2a2a2a;
+      color: #ccc;
+      vertical-align: top;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    pre {
+      background: #111;
+      border: 1px solid #2e2e2e;
+      border-radius: 6px;
+      padding: 1rem 1.1rem;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      overflow-x: auto;
+      margin-bottom: 1rem;
+      color: #b0b0b0;
+    }
+
+    code {
+      font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+    }
+
+    pre code { color: #b0b0b0; }
+
+    .inline-code {
+      background: #252525;
+      border: 1px solid #333;
+      border-radius: 3px;
+      padding: 0.1em 0.4em;
+      font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+      font-size: 0.82em;
+      color: #e0e0e0;
+    }
+
+    .note {
+      background: #1e1e14;
+      border-left: 3px solid #aa8800;
+      padding: 0.6rem 1rem;
+      border-radius: 0 4px 4px 0;
+      font-size: 0.85rem;
+      color: #ccc;
+      margin-bottom: 1rem;
+    }
+
+    ul, ol {
+      margin: 0.5rem 0 0.75rem 1.4rem;
+      font-size: 0.88rem;
+      color: #ccc;
+      line-height: 1.7;
+    }
+
+    footer {
+      margin-top: 3rem;
+      color: #444;
+      font-size: 0.8rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <a class="back" href="/">&larr; Back to portal</a>
+
+  <header>
+    <h1>Network Guide</h1>
+    <div class="subtitle">Battistello Network &mdash; WireGuard Split Tunnel &mdash; Last Updated: March 2026</div>
+  </header>
+
+  <!-- OVERVIEW -->
+  <h2>Overview</h2>
+
+  <table>
+    <tr><th>Role</th><th>Device</th><th>LAN Subnet</th><th>Tunnel IP</th></tr>
+    <tr><td>VPN Server</td><td>UniFi Dream Router 7 (home)</td><td>192.168.1.0/24</td><td>10.10.10.10</td></tr>
+    <tr><td>VPN Client</td><td>GL.iNet Beryl AX MT3000 (travel)</td><td>192.168.8.0/24</td><td>10.10.10.2</td></tr>
+    <tr><td>DNS</td><td>Pi-hole (home, Docker on dockerpi)</td><td>192.168.1.100</td><td>&mdash;</td></tr>
+    <tr><td>Tunnel</td><td>WireGuard virtual network</td><td>10.10.10.0/24</td><td>&mdash;</td></tr>
+  </table>
+
+  <p><strong>DDNS:</strong> <span class="inline-code">home.battistello.xyz</span> &rarr; <span class="inline-code">70.8.184.230</span> (Cloudflare, DNS Only)<br>
+  <strong>WireGuard Port:</strong> UDP 51820</p>
+
+<pre><code>[Travel Devices 192.168.8.x]
+        ↓
+[Beryl AX — 192.168.8.1]
+        ↓ WireGuard split tunnel
+[UDR7 — 192.168.1.1]
+        ↓
+[Home Devices 192.168.1.x]
+[Pi-hole — 192.168.1.100]
+[TrueNAS — 192.168.1.4]</code></pre>
+
+  <p><strong>Split tunnel:</strong> Only <span class="inline-code">192.168.1.0/24</span> and <span class="inline-code">10.10.10.0/24</span> go through the VPN.
+  All other internet traffic exits the Beryl's local WAN directly.</p>
+
+  <!-- KEY ADDRESSES -->
+  <h2>Key Addresses</h2>
+
+  <table>
+    <tr><th>Resource</th><th>Address</th></tr>
+    <tr><td>UDR7 admin</td><td><span class="inline-code">https://192.168.1.1</span></td></tr>
+    <tr><td>Beryl admin</td><td><span class="inline-code">http://192.168.8.1</span></td></tr>
+    <tr><td>Beryl SSH</td><td><span class="inline-code">ssh root@192.168.8.1</span> (same password as admin)</td></tr>
+    <tr><td>Pi-hole admin</td><td><span class="inline-code">http://192.168.1.100/admin</span></td></tr>
+    <tr><td>Pi-hole Docker</td><td><span class="inline-code">~/pihole/</span> on dockerpi</td></tr>
+    <tr><td>survive</td><td>192.168.8.2 / survive.travel</td></tr>
+    <tr><td>cachyos</td><td>192.168.8.224 / cachyos.travel</td></tr>
+    <tr><td>DDNS hostname</td><td><span class="inline-code">home.battistello.xyz</span></td></tr>
+  </table>
+
+  <!-- DNS -->
+  <h2>DNS</h2>
+
+  <p>Pi-hole domain: <span class="inline-code">home</span><br>
+  Beryl dnsmasq upstream: <span class="inline-code">192.168.1.100</span> (Pi-hole)</p>
+
+  <table>
+    <tr><th>Query</th><th>From</th><th>Result</th></tr>
+    <tr><td><span class="inline-code">anything.home</span></td><td>Travel device</td><td>Pi-hole &rarr; home LAN hostnames</td></tr>
+    <tr><td><span class="inline-code">survive.travel</span></td><td>Home device</td><td>Pi-hole static &rarr; 192.168.8.2</td></tr>
+    <tr><td><span class="inline-code">cachyos.travel</span></td><td>Home device</td><td>Pi-hole static &rarr; 192.168.8.224</td></tr>
+  </table>
+
+  <h3>Pi-hole Static DNS Entries</h3>
+  <p>Pi-hole &rarr; <strong>Local DNS &rarr; DNS Records:</strong></p>
+
+  <table>
+    <tr><th>Domain</th><th>IP</th></tr>
+    <tr><td><span class="inline-code">survive.travel</span></td><td>192.168.8.2</td></tr>
+    <tr><td><span class="inline-code">cachyos.travel</span></td><td>192.168.8.224</td></tr>
+  </table>
+
+  <p>Add new travel devices here whenever they join permanently.</p>
+
+  <!-- SETUP: UDR7 -->
+  <h2>Setup &mdash; UDR7 WireGuard Server</h2>
+
+  <ol>
+    <li>UniFi Network &rarr; <strong>Settings &rarr; VPN &rarr; VPN Server &rarr; Create New</strong></li>
+    <li>Type: WireGuard, Port: 51820</li>
+    <li>Check <strong>Use Alternate Address for Clients</strong> &rarr; <span class="inline-code">home.battistello.xyz</span></li>
+    <li>Advanced &rarr; Gateway/Subnet &rarr; Manual: <span class="inline-code">10.10.10.10 / 24</span></li>
+    <li>Add client <strong>Travel Router</strong>: Interface IP <span class="inline-code">10.10.10.2</span>, Remote Client Networks <span class="inline-code">192.168.8.0/24</span></li>
+    <li>Download client config &rarr; edit before loading on Beryl (see below)</li>
+    <li>Verify firewall rule exists: <strong>Settings &rarr; Firewall &rarr; Internet Local &rarr; Allow WireGuard Server (UDP)</strong></li>
+  </ol>
+
+  <!-- SETUP: BERYL -->
+  <h2>Setup &mdash; Beryl WireGuard Client</h2>
+
+  <p>Edit the downloaded <span class="inline-code">.conf</span> before loading:</p>
+
+<pre><code>[Interface]
+PrivateKey = &lt;auto-generated&gt;
+Address = 10.10.10.2/24
+DNS = 192.168.1.100        # ← change from 10.10.10.10 to Pi-hole
+
+[Peer]
+PublicKey = &lt;UDR7 public key&gt;
+Endpoint = home.battistello.xyz:51820
+AllowedIPs = 192.168.1.0/24, 10.10.10.0/24   # ← change from 0.0.0.0/0
+PersistentKeepalive = 25</code></pre>
+
+  <p>Load: Beryl admin &rarr; <strong>VPN &rarr; WireGuard Client &rarr; Add Manually</strong> &rarr; name <span class="inline-code">Home-UDR7</span> &rarr; Enable.</p>
+
+  <h3>Beryl dnsmasq Upstream</h3>
+
+<pre><code>ssh root@192.168.8.1
+uci set dhcp.@dnsmasq[0].server='192.168.1.100'
+uci commit dhcp
+/etc/init.d/dnsmasq restart
+
+# Verify
+uci show dhcp.@dnsmasq[0].server
+# dhcp.cfg01411c.server='192.168.1.100'</code></pre>
+
+  <h3>Beryl Firewall (bidirectional LAN &#8596; WireGuard)</h3>
+
+  <div class="note">These do NOT survive a factory reset &mdash; reapply if needed.</div>
+
+<pre><code>ssh root@192.168.8.1
+
+uci add firewall forwarding
+uci set firewall.@forwarding[-1].src='wgclient1'
+uci set firewall.@forwarding[-1].dest='lan'
+
+uci add firewall forwarding
+uci set firewall.@forwarding[-1].src='lan'
+uci set firewall.@forwarding[-1].dest='wgclient1'
+
+cat > /etc/firewall.user &lt;&lt; 'EOF'
+iptables -I INPUT -i wgclient1 -j ACCEPT
+iptables -I FORWARD -i wgclient1 -o br-lan -j ACCEPT
+iptables -I FORWARD -i br-lan -o wgclient1 -j ACCEPT
+EOF
+
+uci set firewall.wglan=include
+uci set firewall.wglan.path='/etc/firewall.user'
+uci set firewall.wglan.reload='1'
+
+uci commit firewall
+/etc/init.d/firewall restart</code></pre>
+
+  <h3>Static DHCP for survive</h3>
+  <p>Beryl admin &rarr; <strong>Clients &rarr; survive &rarr; IP Binding</strong> &rarr; assign <span class="inline-code">192.168.8.2</span></p>
+
+  <!-- SETUP: PI-HOLE -->
+  <h2>Setup &mdash; Pi-hole</h2>
+
+  <p><strong>Settings &rarr; DNS &rarr; Pi-hole domain name:</strong> <span class="inline-code">home</span></p>
+  <p><strong>Local DNS &rarr; DNS Records:</strong> add <span class="inline-code">survive.travel &rarr; 192.168.8.2</span> and <span class="inline-code">cachyos.travel &rarr; 192.168.8.224</span></p>
+
+  <!-- SETUP: LINUX CLIENTS -->
+  <h2>Setup &mdash; Linux Travel Clients (systemd-resolved)</h2>
+
+  <p>One-time per machine so <span class="inline-code">.home</span> queries route through the tunnel:</p>
+
+<pre><code>sudo mkdir -p /etc/systemd/resolved.conf.d/
+sudo tee /etc/systemd/resolved.conf.d/home-domain.conf &lt;&lt; 'EOF'
+[Resolve]
+Domains=~home
+EOF
+sudo systemctl restart systemd-resolved
+
+# Verify
+resolvectl query truenas.home   # should return 192.168.1.4</code></pre>
+
+  <!-- ADDING A NEW DEVICE -->
+  <h2>Adding a New Travel Device</h2>
+
+  <ol>
+    <li>Connect to Beryl WiFi &mdash; gets DHCP from <span class="inline-code">192.168.8.0/24</span></li>
+    <li>Find IP: <span class="inline-code">ssh root@192.168.8.1 'cat /tmp/dhcp.leases'</span> or check Beryl &rarr; Clients</li>
+    <li>Set static lease: Beryl admin &rarr; Clients &rarr; device &rarr; IP Binding</li>
+    <li>Add Pi-hole entry: <span class="inline-code">devicename.travel &rarr; 192.168.8.x</span></li>
+    <li>If Linux: apply systemd-resolved drop-in (see above)</li>
+  </ol>
+
+  <!-- VERIFICATION -->
+  <h2>Verification</h2>
+
+  <h3>From a travel device</h3>
+<pre><code>ping 192.168.1.1        # UDR7
+ping 192.168.1.100      # Pi-hole
+ping 10.10.10.10        # tunnel IP
+ping truenas.home       # name resolution via Pi-hole
+curl ifconfig.me        # must show Beryl WAN IP, NOT home IP (split tunnel check)</code></pre>
+
+  <h3>From a home device</h3>
+<pre><code>ping 192.168.8.2        # survive
+ping survive.travel     # name resolution via Pi-hole</code></pre>
+
+  <h3>Tunnel status</h3>
+<pre><code>ssh root@192.168.8.1 'wg show'
+# handshake: within last few minutes
+# transfer: bytes incrementing</code></pre>
+
+  <!-- TROUBLESHOOTING -->
+  <h2>Troubleshooting</h2>
+
+  <h3>Tunnel won't connect</h3>
+<pre><code>dig home.battistello.xyz @1.1.1.1   # must return 70.8.184.230
+ssh root@192.168.8.1 'wg show'
+# Check UDR7: Settings → Firewall → Internet Local → Allow WireGuard Server (UDP 51820)</code></pre>
+
+  <h3>Can't reach home LAN from travel (192.168.1.x unreachable)</h3>
+<pre><code># AllowedIPs must include 192.168.1.0/24 — NOT 0.0.0.0/0
+# Beryl → VPN → WireGuard Client → edit profile</code></pre>
+
+  <h3>Can't reach travel LAN from home (192.168.8.x unreachable)</h3>
+<pre><code># UDR7: peer → Remote Client Networks must include 192.168.8.0/24
+ssh root@192.168.8.1 'iptables -L zone_wgclient1_forward -n'
+# should show zone_lan_dest_ACCEPT</code></pre>
+
+  <h3>.home names don't resolve from travel</h3>
+<pre><code>cat /etc/systemd/resolved.conf.d/home-domain.conf   # Domains=~home
+uci show dhcp.@dnsmasq[0].server                    # must be 192.168.1.100
+nslookup truenas.home 192.168.1.100                 # test Pi-hole directly
+sudo resolvectl flush-caches && ping truenas.home</code></pre>
+
+  <h3>.travel names don't resolve from home</h3>
+<pre><code>dig @192.168.1.100 survive.travel   # must return 192.168.8.2
+# Check Pi-hole → Local DNS → DNS Records</code></pre>
+
+  <h3>Tunnel works traveling but not at home</h3>
+  <p>Hairpin NAT on UDR7 is automatic &mdash; wait 60&ndash;90s after plugging in.<br>
+  Verify DDNS: <span class="inline-code">dig home.battistello.xyz @1.1.1.1</span></p>
+
+  <h3>Beryl SSH is slow from home</h3>
+  <p>Connect a device directly to Beryl WiFi and SSH from there &mdash; avoids tunnel round-trip.</p>
+
+  <footer>
+    <p>SURVIVE &mdash; <span id="host"></span></p>
+    <script>document.getElementById('host').textContent = window.location.hostname;</script>
+  </footer>
+
+</div>
+</body>
+</html>
