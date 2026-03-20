@@ -399,8 +399,10 @@ chmod +x "${SCRIPTS_DST}/sync/"*.sh
 chmod +x "${SCRIPTS_DST}/postprocess/"*.sh
 [[ -d "${SCRIPTS_DST}/admin" ]] && chmod +x "${SCRIPTS_DST}/admin/"*.sh || true
 
-# Copy portal maps viewer
+# Copy portal assets — both to live location and to scripts dir (so sync-all.sh can re-deploy)
 cp -r "${SCRIPT_DIR}/portal/." "${PORTAL_DST}/"
+mkdir -p "${SCRIPTS_DST}/portal"
+cp -r "${SCRIPT_DIR}/portal/." "${SCRIPTS_DST}/portal/"
 
 info "  Scripts and portal assets: OK"
 

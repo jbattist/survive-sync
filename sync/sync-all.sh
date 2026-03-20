@@ -32,6 +32,16 @@ fi
 
 MODULES="${SYNC_MODULES:-zim pdfs books maps video}"
 
+# ── sync portal files ─────────────────────────────────────────────────────────
+# Keep the live portal up to date with whatever was deployed by install.sh.
+# This means a `git pull && sudo bash install.sh` on the Pi automatically
+# propagates updated portal files on the next sync run.
+PORTAL_SRC="${SCRIPT_DIR}/../portal"
+if [[ -d "${PORTAL_SRC}" ]]; then
+    mkdir -p "${OFFLINE_ROOT}/portal"
+    cp -r "${PORTAL_SRC}/." "${OFFLINE_ROOT}/portal/"
+fi
+
 # ── helpers ───────────────────────────────────────────────────────────────────
 log() { echo "[$(date '+%H:%M:%S')] $*" | tee -a "${LOG_FILE}"; }
 hr()  { echo "────────────────────────────────────────────────" | tee -a "${LOG_FILE}"; }

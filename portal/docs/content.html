@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Content Management — SURVIVE</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    .page { width: 100%; max-width: 860px; }
+
+    .back {
+      display: inline-block;
+      margin-bottom: 1.5rem;
+      color: #888;
+      text-decoration: none;
+      font-size: 0.85rem;
+      letter-spacing: 0.04em;
+    }
+    .back:hover { color: #ff4444; }
+
+    header {
+      margin-bottom: 2rem;
+      border-bottom: 1px solid #333;
+      padding-bottom: 1.25rem;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: #ff4444;
+      text-transform: uppercase;
+    }
+
+    header .subtitle {
+      margin-top: 0.35rem;
+      color: #888;
+      font-size: 0.85rem;
+    }
+
+    h2 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #ff4444;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin: 2rem 0 0.75rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid #2e2e2e;
+    }
+
+    h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #ccc;
+      margin: 1.25rem 0 0.5rem;
+    }
+
+    p {
+      font-size: 0.9rem;
+      line-height: 1.7;
+      color: #ccc;
+      margin-bottom: 0.75rem;
+    }
+
+    strong { color: #e0e0e0; }
+    a { color: #ff9999; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+    }
+
+    th {
+      text-align: left;
+      padding: 0.45rem 0.75rem;
+      background: #242424;
+      color: #ff4444;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid #333;
+    }
+
+    td {
+      padding: 0.45rem 0.75rem;
+      border-bottom: 1px solid #2a2a2a;
+      color: #ccc;
+      vertical-align: top;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    pre {
+      background: #111;
+      border: 1px solid #2e2e2e;
+      border-radius: 6px;
+      padding: 1rem 1.1rem;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      overflow-x: auto;
+      margin-bottom: 1rem;
+      color: #b0b0b0;
+      font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+    }
+
+    code {
+      font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+    }
+
+    .ic {
+      background: #252525;
+      border: 1px solid #333;
+      border-radius: 3px;
+      padding: 0.1em 0.4em;
+      font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+      font-size: 0.82em;
+      color: #e0e0e0;
+    }
+
+    .note {
+      background: #1e1e14;
+      border-left: 3px solid #aa8800;
+      padding: 0.6rem 1rem;
+      border-radius: 0 4px 4px 0;
+      font-size: 0.85rem;
+      color: #ccc;
+      margin-bottom: 1rem;
+    }
+
+    .tip {
+      background: #141e14;
+      border-left: 3px solid #44aa44;
+      padding: 0.6rem 1rem;
+      border-radius: 0 4px 4px 0;
+      font-size: 0.85rem;
+      color: #ccc;
+      margin-bottom: 1rem;
+    }
+
+    ul, ol {
+      margin: 0.5rem 0 0.75rem 1.4rem;
+      font-size: 0.88rem;
+      color: #ccc;
+      line-height: 1.7;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.1em 0.5em;
+      border-radius: 3px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      vertical-align: middle;
+    }
+
+    .badge-p1 { background: #3a1010; color: #ff6666; border: 1px solid #5a1a1a; }
+    .badge-p2 { background: #1e2a1e; color: #88cc88; border: 1px solid #2a3e2a; }
+    .badge-p3 { background: #1a1a2e; color: #8888cc; border: 1px solid #2a2a40; }
+
+    .check { color: #44aa44; font-weight: 700; }
+    .cross { color: #aa4444; font-weight: 700; }
+
+    footer {
+      margin-top: 3rem;
+      color: #444;
+      font-size: 0.8rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <a class="back" href="/">&larr; Back to portal</a>
+
+  <header>
+    <h1>Content Management</h1>
+    <div class="subtitle">How to add, update, and remove content from the offline library</div>
+  </header>
+
+  <!-- QUICK REFERENCE -->
+  <h2>Config Files</h2>
+
+  <p>All content is defined in plain text config files on the Pi at
+  <span class="ic">/srv/offline/scripts/config/</span>.
+  Edit these files to add or remove content, then trigger a sync.</p>
+
+  <table>
+    <tr><th>File</th><th>Controls</th><th>Update detection</th></tr>
+    <tr>
+      <td><span class="ic">zim-list.conf</span></td>
+      <td>Wikipedia, Wiktionary, and other ZIM encyclopedias</td>
+      <td><span class="check">Auto</span> — checks remote filename (date-versioned monthly)</td>
+    </tr>
+    <tr>
+      <td><span class="ic">pdf-sources.conf</span></td>
+      <td>PDF guides and manuals</td>
+      <td><span class="cross">Manual</span> — local SHA-256 only; delete file to force re-download</td>
+    </tr>
+    <tr>
+      <td><span class="ic">book-list.conf</span></td>
+      <td>EPUBs from Project Gutenberg and Standard Ebooks</td>
+      <td><span class="cross">Manual</span> — filename existence; delete file to re-fetch</td>
+    </tr>
+    <tr>
+      <td><span class="ic">video-list.conf</span></td>
+      <td>YouTube videos, playlists, channels; archive.org clips</td>
+      <td><span class="cross">Manual</span> — yt-dlp archive ID; remove ID from archive to re-fetch</td>
+    </tr>
+    <tr>
+      <td><span class="ic">map-regions.conf</span></td>
+      <td>OSM map regions (PBF &rarr; MBTiles) and USGS topos</td>
+      <td><span class="check">Auto</span> — compares Geofabrik MD5 checksum</td>
+    </tr>
+  </table>
+
+  <!-- TRIGGERING A SYNC -->
+  <h2>Triggering a Sync</h2>
+
+  <h3>Full sync (all modules)</h3>
+<pre><code>sudo systemctl start survive-sync.service
+journalctl -u survive-sync -f          # follow log; Ctrl+C to detach</code></pre>
+
+  <h3>Specific modules only</h3>
+<pre><code>SYNC_MODULES='pdfs' sudo systemctl start survive-sync.service
+SYNC_MODULES='pdfs books' sudo systemctl start survive-sync.service
+# module names: zim  pdfs  books  maps  video</code></pre>
+
+  <h3>Check last sync result</h3>
+<pre><code>journalctl -u survive-sync -n 100 --no-pager
+ls /srv/offline/logs/</code></pre>
+
+  <!-- PDFs -->
+  <h2>Adding a PDF</h2>
+
+  <p>Edit <span class="ic">/srv/offline/scripts/config/pdf-sources.conf</span> and add a line in this format (fields separated by a single <strong>tab</strong>):</p>
+
+<pre><code>url&lt;TAB&gt;local_filename&lt;TAB&gt;category_dir&lt;TAB&gt;priority&lt;TAB&gt;description</code></pre>
+
+  <p>Example:</p>
+<pre><code>https://example.gov/guide.pdf	01-medical__example__field-guide__2023.pdf	01-medical	P1	Example Field Guide 2023</code></pre>
+
+  <h3>Fields</h3>
+  <table>
+    <tr><th>Field</th><th>Notes</th></tr>
+    <tr><td><span class="ic">url</span></td><td>Direct link to the PDF. Must be publicly accessible.</td></tr>
+    <tr>
+      <td><span class="ic">local_filename</span></td>
+      <td>Use the convention: <span class="ic">category__source__title__year.pdf</span><br>
+      Lowercase, hyphens for spaces, double-underscore as separator.</td>
+    </tr>
+    <tr>
+      <td><span class="ic">category_dir</span></td>
+      <td>Subdirectory under <span class="ic">/srv/offline/pdfs/</span> — see categories below.</td>
+    </tr>
+    <tr>
+      <td><span class="ic">priority</span></td>
+      <td>
+        <span class="badge badge-p1">P1</span> Lifesaving / essential &nbsp;
+        <span class="badge badge-p2">P2</span> High value &nbsp;
+        <span class="badge badge-p3">P3</span> Educational
+      </td>
+    </tr>
+    <tr><td><span class="ic">description</span></td><td>Human-readable label for logs and future reference.</td></tr>
+  </table>
+
+  <h3>Categories</h3>
+  <table>
+    <tr><th>Directory</th><th>Contents</th></tr>
+    <tr><td><span class="ic">00-start-here</span></td><td>Preparedness checklists and family plans</td></tr>
+    <tr><td><span class="ic">01-medical</span></td><td>First aid, trauma care, disease, health</td></tr>
+    <tr><td><span class="ic">02-water</span></td><td>Purification, sanitation, water systems</td></tr>
+    <tr><td><span class="ic">03-food</span></td><td>Canning, preservation, storage, cooking</td></tr>
+    <tr><td><span class="ic">04-agriculture</span></td><td>Farming, gardening, livestock, soil</td></tr>
+    <tr><td><span class="ic">05-shelter</span></td><td>Construction, fortification, hazard mitigation</td></tr>
+    <tr><td><span class="ic">06-power</span></td><td>Solar, generators, batteries, propane</td></tr>
+    <tr><td><span class="ic">07-repair</span></td><td>Tools, vehicles, plumbing, electrical, survival</td></tr>
+    <tr><td><span class="ic">08-comms</span></td><td>Ham radio, emergency communications, ICS</td></tr>
+    <tr><td><span class="ic">09-navigation</span></td><td>Maps, topo, land nav, tides</td></tr>
+    <tr><td><span class="ic">10-security</span></td><td>NIMS, ICS, community preparedness</td></tr>
+    <tr><td><span class="ic">11-reference</span></td><td>Legal, policy, frameworks</td></tr>
+    <tr><td><span class="ic">12-technology</span></td><td>Hardware docs, server references</td></tr>
+  </table>
+
+  <h3>To force a re-download</h3>
+  <p>The PDF sync only re-downloads if the local file is missing or its hash doesn't match the stored hash. To force a fresh copy:</p>
+<pre><code>rm /srv/offline/pdfs/01-medical/01-medical__who__basic-emergency-care__2018.pdf
+# Then run the sync — it will re-download that file only
+SYNC_MODULES='pdfs' sudo systemctl start survive-sync.service</code></pre>
+
+  <!-- VIDEOS -->
+  <h2>Adding a Video</h2>
+
+  <p>Edit <span class="ic">/srv/offline/scripts/config/video-list.conf</span> and add a line (tab-separated):</p>
+
+<pre><code>type&lt;TAB&gt;id_or_url&lt;TAB&gt;category&lt;TAB&gt;subcategory&lt;TAB&gt;title</code></pre>
+
+  <h3>Types</h3>
+  <table>
+    <tr><th>Type</th><th>id_or_url</th><th>Limit</th></tr>
+    <tr><td><span class="ic">video</span></td><td>11-char YouTube video ID, or a full URL (including archive.org)</td><td>1 video</td></tr>
+    <tr><td><span class="ic">playlist</span></td><td>YouTube playlist URL</td><td>20 most recent</td></tr>
+    <tr><td><span class="ic">channel</span></td><td>YouTube channel URL</td><td>10 most recent</td></tr>
+  </table>
+
+  <h3>Examples</h3>
+<pre><code># Single YouTube video (ID only)
+video	lJLSzWjGKMY	first-aid	cpr	AHA Hands-Only CPR
+
+# archive.org direct MP4 URL
+video	https://archive.org/download/BigBuckBunny_328/BigBuckBunny_512kb.mp4	morale	family	Big Buck Bunny
+
+# YouTube channel (top 10 videos)
+channel	https://www.youtube.com/@StoptheBleed	first-aid	bleeding	Stop the Bleed channel</code></pre>
+
+  <h3>Categories</h3>
+  <p>Use any of: <span class="ic">first-aid</span> &nbsp; <span class="ic">repair</span> &nbsp; <span class="ic">power</span> &nbsp; <span class="ic">food</span> &nbsp; <span class="ic">morale</span> — or add a new category name; the directory will be created automatically.</p>
+
+  <h3>To re-download a video</h3>
+  <p>yt-dlp records every downloaded video ID in <span class="ic">/srv/offline/video/.yt-dlp-archive.txt</span>. To re-fetch a specific video, remove its line from that file:</p>
+<pre><code># Find the entry (format: "youtube &lt;ID&gt;")
+grep lJLSzWjGKMY /srv/offline/video/.yt-dlp-archive.txt
+
+# Remove it
+sed -i '/lJLSzWjGKMY/d' /srv/offline/video/.yt-dlp-archive.txt
+
+# Re-run video sync
+SYNC_MODULES='video' sudo systemctl start survive-sync.service</code></pre>
+
+  <!-- ZIM -->
+  <h2>Adding a ZIM (Wikipedia / Encyclopedia)</h2>
+
+  <p>Edit <span class="ic">/srv/offline/scripts/config/zim-list.conf</span> and add a line (pipe-separated):</p>
+
+<pre><code>slug | kiwix_subdir | description</code></pre>
+
+  <p>Example:</p>
+<pre><code>stackoverflow_en_all     | stackoverflow   | Stack Overflow Q&amp;A (programming)
+gutenberg_en_all         | gutenberg       | Project Gutenberg full library</code></pre>
+
+  <h3>Finding slugs</h3>
+  <p>Browse available ZIM files at <a href="https://library.kiwix.org" target="_blank">library.kiwix.org</a> or the download index at <a href="https://download.kiwix.org/zim/" target="_blank">download.kiwix.org/zim/</a>. The <span class="ic">slug</span> is the filename prefix before the date stamp (e.g. <span class="ic">wikipedia_en_all_maxi</span> from <span class="ic">wikipedia_en_all_maxi_2024-11.zim</span>). The <span class="ic">kiwix_subdir</span> is the subdirectory on the download server (e.g. <span class="ic">wikipedia</span>, <span class="ic">wiktionary</span>, <span class="ic">stackoverflow</span>).</p>
+
+  <div class="tip">ZIM files update automatically — the sync fetches the newest dated version and removes the old one. No manual re-download needed.</div>
+
+  <!-- BOOKS -->
+  <h2>Adding a Book</h2>
+
+  <p>Edit <span class="ic">/srv/offline/scripts/config/book-list.conf</span> and add a line (tab-separated):</p>
+
+<pre><code>source&lt;TAB&gt;id_or_slug&lt;TAB&gt;local_filename_base&lt;TAB&gt;category&lt;TAB&gt;priority&lt;TAB&gt;title</code></pre>
+
+  <h3>Sources</h3>
+  <table>
+    <tr><th>Source</th><th>id_or_slug</th><th>Example</th></tr>
+    <tr>
+      <td><span class="ic">gutenberg</span></td>
+      <td>Numeric book ID from gutenberg.org/ebooks/</td>
+      <td><span class="ic">gutenberg	1342	pride-and-prejudice--austen	classics	P3	Pride and Prejudice</span></td>
+    </tr>
+    <tr>
+      <td><span class="ic">standardebooks</span></td>
+      <td>Path from standardebooks.org/ebooks/ — e.g. <span class="ic">author-name/book-title</span></td>
+      <td><span class="ic">standardebooks	jack-london/the-call-of-the-wild	call-of-the-wild--london	morale	P3	The Call of the Wild</span></td>
+    </tr>
+  </table>
+
+  <h3>Categories</h3>
+  <p>Use any of: <span class="ic">practical</span> &nbsp; <span class="ic">reference</span> &nbsp; <span class="ic">morale</span> &nbsp; <span class="ic">family</span> &nbsp; <span class="ic">classics</span> — or any name you like.</p>
+
+  <h3>To re-download a book</h3>
+<pre><code>rm /srv/offline/books/epub/robinson-crusoe--defoe.epub
+SYNC_MODULES='books' sudo systemctl start survive-sync.service</code></pre>
+
+  <!-- MAPS -->
+  <h2>Adding a Map Region</h2>
+
+  <p>Edit <span class="ic">/srv/offline/scripts/config/map-regions.conf</span> and add a line (tab-separated):</p>
+
+<pre><code>geofabrik&lt;TAB&gt;region/state-identifier&lt;TAB&gt;state-slug&lt;TAB&gt;north-america/us&lt;TAB&gt;description</code></pre>
+
+  <p>Example — adding New Jersey:</p>
+<pre><code>geofabrik	north-america/us/new-jersey	new-jersey	north-america/us	New Jersey OSM street map</code></pre>
+
+  <p>The <span class="ic">region/state-identifier</span> is the Geofabrik path used to build the download URL. Browse regions at <a href="https://download.geofabrik.de" target="_blank">download.geofabrik.de</a>.</p>
+
+  <div class="tip">Maps update automatically — the sync checks the Geofabrik MD5 checksum on each run and only re-downloads and re-converts if the source data has changed.</div>
+
+  <!-- REMOVING CONTENT -->
+  <h2>Removing Content</h2>
+
+  <p>Comment out or delete the line from the appropriate config file, then delete the file(s) manually:</p>
+
+<pre><code># Remove a PDF
+rm /srv/offline/pdfs/04-agriculture/04-agriculture__misc__peasant-farming-techniques__2005.pdf
+
+# Remove a ZIM (comment out its line in zim-list.conf first, then delete)
+rm /srv/offline/kiwix/zim/wikipedia_en_simple_all_maxi_2024-11.zim
+
+# Remove a book
+rm /srv/offline/books/epub/moby-dick--melville.epub
+# Also remove from Calibre
+calibredb remove --with-library /srv/offline/books/calibre-library &lt;ID&gt;</code></pre>
+
+  <p>If you only delete the file without removing the line from the config, the sync will re-download it on the next run.</p>
+
+  <!-- DEPLOYING CHANGES -->
+  <h2>Deploying Config Changes</h2>
+
+  <p>Config files live in the git repo. The recommended workflow:</p>
+
+  <ol>
+    <li>Edit the config file on your laptop</li>
+    <li><span class="ic">git push</span></li>
+    <li>On the Pi: <span class="ic">cd ~/survive-sync &amp;&amp; git pull &amp;&amp; sudo bash install.sh</span></li>
+    <li>The next weekly sync (or a manual trigger) picks up the new entries</li>
+  </ol>
+
+  <p>Or edit directly on the Pi if you need a quick change without going through git:</p>
+<pre><code>ssh joe@survive.travel
+nano /srv/offline/scripts/config/pdf-sources.conf
+SYNC_MODULES='pdfs' sudo systemctl start survive-sync.service</code></pre>
+
+  <div class="note">Direct edits on the Pi will be overwritten the next time <span class="ic">install.sh</span> runs. Commit changes back to the repo to make them permanent.</div>
+
+  <footer>
+    <p>SURVIVE &mdash; <span id="host"></span></p>
+    <script>document.getElementById('host').textContent = window.location.hostname;</script>
+  </footer>
+
+</div>
+</body>
+</html>
