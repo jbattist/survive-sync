@@ -19,10 +19,10 @@ cat <<EOF
   ┌─────────────────────────────────────────────────────┐
   │            SURVIVE — Offline Library                │
   ├─────────────────────────────────────────────────────┤
-  │  Portal     http://survive/             caddy:           $(_svc caddy)
-  │  Wikipedia  http://survive:8080/        kiwix:           $(_svc kiwix)
-  │  Books      http://survive/books/       calibre-server:  $(_svc calibre-server)
-  │  Maps       http://survive/maps/        mbtileserver:    $(_svc mbtileserver)
+  │  Portal     http://survive.travel/           caddy:           $(_svc caddy)
+  │  Wikipedia  http://survive.travel/wiki/      kiwix:           $(_svc kiwix)
+  │  Books      http://survive.travel/books/     calibre-server:  $(_svc calibre-server)
+  │  Maps       http://survive.travel/maps/      mbtileserver:    $(_svc mbtileserver)
   ├─────────────────────────────────────────────────────┤
   │  Sync:    sudo systemctl start survive-sync
   │  Log:     journalctl -u survive-sync -f
