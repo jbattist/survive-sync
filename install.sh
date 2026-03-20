@@ -21,7 +21,9 @@
 #   7.  Installs systemd units for srv-offline.mount, mbtileserver, kiwix, calibre-server, survive-sync
 #   8.  Patches /etc/caddy/Caddyfile to add map tile and download routes
 #   9.  Patches /etc/nftables.conf to allow port 8082 (mbtileserver)
-#   10. Reloads services
+#   10. Sets ownership of /srv/offline
+#   11. Configures sudo for library user service restarts
+#   12. Installs /etc/profile.d/survive-welcome.sh (login banner)
 #
 # Idempotent — safe to re-run after updates.
 set -euo pipefail
@@ -662,6 +664,17 @@ library ALL=(root) NOPASSWD: /usr/bin/systemctl restart mbtileserver.service
 SUDOERS
 chmod 0440 "${SUDOERS_FILE}"
 info "  Sudoers: ${SUDOERS_FILE}"
+
+# ── step 12: install login welcome message ────────────────────────────────────
+info "Step 12: Installing login welcome script"
+WELCOME_SRC="${SCRIPT_DIR}/scripts/survive-welcome.sh"
+WELCOME_DST="/etc/profile.d/survive-welcome.sh"
+if [[ -f "${WELCOME_SRC}" ]]; then
+    install -m 0644 "${WELCOME_SRC}" "${WELCOME_DST}"
+    info "  Installed: ${WELCOME_DST}"
+else
+    warn "  ${WELCOME_SRC} not found — skipping"
+fi
 
 # ── summary ───────────────────────────────────────────────────────────────────
 echo ""
