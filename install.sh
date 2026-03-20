@@ -24,7 +24,6 @@
 #   10. Sets ownership of /srv/offline
 #   11. Configures sudo for library user service restarts
 #   12. Installs /etc/profile.d/survive-welcome.sh (login banner)
-#   13. Configures Wi-Fi AP via NetworkManager (SSID: SURVIVE, 192.168.50.1)
 #
 # Idempotent — safe to re-run after updates.
 set -euo pipefail
@@ -704,54 +703,6 @@ else
     warn "  ${WELCOME_SRC} not found — skipping"
 fi
 
-# ── step 13: configure Wi-Fi AP ───────────────────────────────────────────────
-info "Step 13: Configuring Wi-Fi AP (SSID: SURVIVE, 192.168.50.1)"
-
-AP_IFACE="wlan0"
-AP_SSID="SURVIVE"
-AP_CON="survive-ap"
-AP_IP="192.168.50.1/24"
-
-if ! command -v nmcli &>/dev/null; then
-    warn "  nmcli not found — skipping AP setup (install NetworkManager)"
-else
-    if nmcli con show "${AP_CON}" &>/dev/null; then
-        info "  AP connection '${AP_CON}': already exists"
-    else
-        nmcli con add \
-            type wifi \
-            ifname "${AP_IFACE}" \
-            con-name "${AP_CON}" \
-            ssid "${AP_SSID}" \
-            mode ap \
-            band bg \
-            channel 6 \
-            ipv4.method shared \
-            ipv4.addresses "${AP_IP}" \
-            connection.autoconnect yes \
-            connection.autoconnect-priority 100 && \
-            info "  AP connection profile '${AP_CON}' created" || \
-            warn "  AP profile creation failed — check: nmcli con show"
-    fi
-
-    nmcli con up "${AP_CON}" 2>/dev/null && \
-        info "  AP up — SSID: ${AP_SSID}, IP: 192.168.50.1" || \
-        warn "  AP failed to come up — check: nmcli con show ${AP_CON}"
-
-    # Open AP subnet ports in firewalld's internal zone
-    if systemctl is-active --quiet firewalld 2>/dev/null; then
-        firewall-cmd --permanent --zone=internal --add-interface="${AP_IFACE}" 2>/dev/null || true
-        firewall-cmd --permanent --zone=internal --add-service=http   2>/dev/null || true
-        firewall-cmd --permanent --zone=internal --add-service=dns    2>/dev/null || true
-        firewall-cmd --permanent --zone=internal --add-service=dhcp   2>/dev/null || true
-        for _port in 8080 8081 8082; do
-            firewall-cmd --permanent --zone=internal --add-port="${_port}/tcp" 2>/dev/null || true
-        done
-        firewall-cmd --reload 2>/dev/null || true
-        info "  firewalld: ${AP_IFACE} added to internal zone, ports 80/8080/8081/8082 open"
-    fi
-fi
-
 # ── summary ───────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}══════════════════════════════════════════════════${NC}"
@@ -781,10 +732,8 @@ echo ""
 echo "Map viewer: http://192.168.50.1/maps/"
 echo ""
 echo "Next steps:"
-echo "  1. Connect a device to Wi-Fi SSID: SURVIVE"
-echo "  2. Browse to http://192.168.50.1/ or http://survive/"
-echo "  3. Ensure Pi is on ethernet for sync mode"
-echo "  4. Run: systemctl start survive-sync.service"
-echo "  5. Monitor: journalctl -u survive-sync -f"
-echo "  6. Wikipedia ZIM is ~100 GB — first sync will take hours"
+echo "  1. Ensure Pi is on ethernet for sync mode"
+echo "  2. Run: systemctl start survive-sync.service"
+echo "  3. Monitor: journalctl -u survive-sync -f"
+echo "  4. Wikipedia ZIM is ~100 GB — first sync will take hours"
 echo ""
