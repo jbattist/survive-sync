@@ -70,21 +70,106 @@ install_aur_pkg() {
 }
 
 # tilemaker — converts OSM PBF to MBTiles
-install_aur_pkg tilemaker
+# The AUR package declares arch=('x86_64') only, so on aarch64 (Pi 5) we build from source.
+install_tilemaker() {
+    if command -v tilemaker &>/dev/null; then
+        info "  tilemaker: already installed"
+        return 0
+    fi
+
+    local arch
+    arch=$(uname -m)
+
+    if [[ "${arch}" == "aarch64" || "${arch}" == arm* ]]; then
+        info "  tilemaker: aarch64 — building from source (AUR pkg is x86_64 only)"
+
+        info "  Installing tilemaker build dependencies via pacman..."
+        pacman -S --noconfirm --needed \
+            base-devel cmake git \
+            boost boost-libs \
+            protobuf \
+            shapelib \
+            rapidjson \
+            luajit \
+            sqlite \
+            zlib 2>&1 | tee -a /dev/null || \
+            warn "  Some tilemaker deps may have failed — attempting build anyway"
+
+        local build_dir
+        build_dir=$(mktemp -d /tmp/tilemaker-build-XXXXXX)
+        trap 'rm -rf "${build_dir}"' RETURN
+
+        info "  Cloning tilemaker source..."
+        git clone --depth=1 https://github.com/systemed/tilemaker.git "${build_dir}" || {
+            warn "  tilemaker clone failed — maps module will be skipped"
+            return 1
+        }
+
+        info "  Configuring tilemaker (cmake)..."
+        cmake -S "${build_dir}" -B "${build_dir}/build" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr \
+            2>&1 || { warn "  tilemaker cmake failed"; return 1; }
+
+        info "  Building tilemaker ($(nproc) cores — may take several minutes)..."
+        cmake --build "${build_dir}/build" --parallel "$(nproc)" \
+            2>&1 || { warn "  tilemaker build failed"; return 1; }
+
+        cmake --install "${build_dir}/build" 2>&1 || { warn "  tilemaker install failed"; return 1; }
+
+        # Install the openmaptiles config/process files to the standard location
+        # so sync-maps.sh can find them without downloading them at runtime
+        mkdir -p /usr/share/tilemaker
+        cp -r "${build_dir}/resources/." /usr/share/tilemaker/ 2>/dev/null || \
+            warn "  Could not copy tilemaker resources to /usr/share/tilemaker/"
+
+        if command -v tilemaker &>/dev/null; then
+            info "  tilemaker: built and installed from source"
+        else
+            warn "  tilemaker binary not found after build — maps module will be skipped"
+        fi
+    else
+        install_aur_pkg tilemaker
+    fi
+}
+install_tilemaker
 
 # mbtileserver — serves MBTiles over HTTP
+# It's a Go binary so it compiles on aarch64, but the AUR pkg may declare x86_64 only.
+# On aarch64: skip AUR and go straight to `go install`.
 if ! command -v mbtileserver &>/dev/null; then
-    # Try AUR first
-    install_aur_pkg mbtileserver
-    # Fallback: install via Go if available
-    if ! command -v mbtileserver &>/dev/null && command -v go &>/dev/null; then
-        info "  Installing mbtileserver via go install..."
-        GOPATH=/usr/local go install github.com/consbio/mbtileserver@latest || \
-            warn "  go install failed — install mbtileserver manually"
-        # Symlink to /usr/bin if installed to /usr/local/bin
-        [[ -f /usr/local/bin/mbtileserver ]] && \
-            ln -sf /usr/local/bin/mbtileserver /usr/bin/mbtileserver || true
+    _arch=$(uname -m)
+    _installed=false
+
+    if [[ "${_arch}" != "aarch64" && "${_arch}" != arm* ]]; then
+        install_aur_pkg mbtileserver
+        command -v mbtileserver &>/dev/null && _installed=true
     fi
+
+    if [[ "${_installed}" == false ]]; then
+        # Build from source via Go (works on all architectures)
+        if command -v go &>/dev/null; then
+            info "  Installing mbtileserver via go install..."
+            GOPATH=/usr/local go install github.com/consbio/mbtileserver@latest && \
+                _installed=true || \
+                warn "  go install failed for mbtileserver"
+            # Ensure binary is on PATH
+            for _bin in /usr/local/bin/mbtileserver /root/go/bin/mbtileserver; do
+                [[ -f "${_bin}" ]] && ln -sf "${_bin}" /usr/bin/mbtileserver && break || true
+            done
+        else
+            warn "  Go not found and AUR skipped — installing Go to build mbtileserver..."
+            pacman -S --noconfirm --needed go 2>&1 | tee -a /dev/null && \
+                GOPATH=/usr/local go install github.com/consbio/mbtileserver@latest && \
+                { ln -sf /usr/local/bin/mbtileserver /usr/bin/mbtileserver 2>/dev/null || true; \
+                  _installed=true; } || \
+                warn "  mbtileserver install failed — install manually: go install github.com/consbio/mbtileserver@latest"
+        fi
+    fi
+
+    command -v mbtileserver &>/dev/null && \
+        info "  mbtileserver: installed" || \
+        warn "  mbtileserver not found — map tile serving will not work"
 else
     info "  mbtileserver: already installed"
 fi
