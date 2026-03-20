@@ -302,21 +302,55 @@ if find "${FONTS_DIR}" -name "*.pbf" -print -quit 2>/dev/null | grep -q .; then
     info "  Fonts: already present"
 else
     info "  Fetching OpenMapTiles fonts..."
-    # Try the GitHub release package (pre-built PBF glyphs)
-    FONTS_VERSION="3.0"
-    FONTS_URL="https://github.com/openmaptiles/fonts/releases/download/v${FONTS_VERSION}/v${FONTS_VERSION}.zip"
     FONTS_TMP="/tmp/omtfonts-$$.zip"
 
-    if curl -L --max-time 300 -o "${FONTS_TMP}" "${FONTS_URL}" 2>/dev/null; then
-        info "  Extracting fonts..."
-        unzip -q -o "${FONTS_TMP}" -d "${FONTS_DIR}/"
-        rm -f "${FONTS_TMP}"
-        font_count=$(find "${FONTS_DIR}" -name "*.pbf" | wc -l)
-        info "  Fonts installed: ${font_count} glyph files"
+    # Resolve the latest release asset URL via the GitHub API (same pattern as MapLibre above).
+    # Falls back to the known-good v2.0 release if the API is unreachable.
+    FONTS_ASSET_URL=$(curl -sf --max-time 15 \
+        "https://api.github.com/repos/openmaptiles/fonts/releases/latest" \
+        | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+tag = data.get('tag_name', 'v2.0').lstrip('v')
+assets = data.get('assets', [])
+# Prefer an asset whose name is exactly 'v<tag>.zip'
+wanted = f'v{tag}.zip'
+for a in assets:
+    if a.get('name') == wanted:
+        print(a['browser_download_url'])
+        sys.exit(0)
+# Fallback: construct the URL from the tag directly
+print(f'https://github.com/openmaptiles/fonts/releases/download/v{tag}/v{tag}.zip')
+" 2>/dev/null) || FONTS_ASSET_URL="https://github.com/openmaptiles/fonts/releases/download/v2.0/v2.0.zip"
+
+    info "  Fonts URL: ${FONTS_ASSET_URL}"
+
+    if curl -L --max-time 300 -o "${FONTS_TMP}" "${FONTS_ASSET_URL}" 2>/dev/null; then
+        # Validate that what we downloaded is actually a zip before calling unzip
+        if python3 -c "
+import sys
+with open('${FONTS_TMP}', 'rb') as f:
+    magic = f.read(4)
+sys.exit(0 if magic == b'PK\x03\x04' else 1)
+" 2>/dev/null; then
+            info "  Extracting fonts..."
+            unzip -q -o "${FONTS_TMP}" -d "${FONTS_DIR}/" || \
+                warn "  unzip failed — fonts may be incomplete; extract manually to ${FONTS_DIR}/"
+            rm -f "${FONTS_TMP}"
+            font_count=$(find "${FONTS_DIR}" -name "*.pbf" | wc -l)
+            info "  Fonts installed: ${font_count} glyph files"
+        else
+            warn "  Downloaded file is not a valid zip (got HTML redirect or error page)."
+            warn "  Map labels will not render until fonts are installed."
+            warn "  To fix: download ${FONTS_ASSET_URL}"
+            warn "  and extract to ${FONTS_DIR}/"
+            rm -f "${FONTS_TMP}"
+        fi
     else
         warn "  Fonts download failed.  Map labels will not render."
         warn "  To fix later: download https://github.com/openmaptiles/fonts/releases"
         warn "  and extract to ${FONTS_DIR}/"
+        rm -f "${FONTS_TMP}" 2>/dev/null || true
     fi
 fi
 
