@@ -182,7 +182,7 @@ fi
 if ! command -v kiwix-serve &>/dev/null; then
     info "  Installing kiwix-tools..."
     # Try official repos first, then AUR
-    pacman -S --noconfirm --needed kiwix-tools 2>/dev/null || install_aur_pkg kiwix-tools
+    pacman -S --noconfirm --needed kiwix-tools || install_aur_pkg kiwix-tools
     command -v kiwix-serve &>/dev/null && \
         info "  kiwix-tools: installed" || \
         warn "  kiwix-tools not found — install manually: yay -S kiwix-tools"
@@ -193,8 +193,8 @@ fi
 # calibre — ebook library server
 if ! command -v calibre-server &>/dev/null; then
     info "  Installing calibre..."
-    pacman -S --noconfirm --needed calibre 2>/dev/null || \
-        warn "  calibre install failed — install manually: sudo pacman -S calibre"
+    pacman -S --noconfirm --needed calibre || \
+        warn "  calibre install failed — run: sudo pacman -Sy calibre"
     command -v calibre-server &>/dev/null && \
         info "  calibre: installed" || \
         warn "  calibre-server not found after install attempt"
@@ -223,8 +223,8 @@ fi
 # caddy — reverse proxy and portal web server
 if ! command -v caddy &>/dev/null; then
     info "  Installing caddy..."
-    pacman -S --noconfirm --needed caddy 2>/dev/null || \
-        warn "  caddy install failed — install manually: sudo pacman -S caddy"
+    pacman -S --noconfirm --needed caddy || \
+        warn "  caddy install failed — run: sudo pacman -Sy caddy"
     command -v caddy &>/dev/null && \
         info "  caddy: installed" || \
         warn "  caddy not found after install attempt"
