@@ -502,8 +502,17 @@ info "  Manual trigger: systemctl start survive-sync.service"
 # ── step 8: install / patch Caddyfile ────────────────────────────────────────
 info "Step 8: Configuring Caddy"
 
-if [[ ! -f "${CADDY_CONF}" ]]; then
-    info "  ${CADDY_CONF} not found — creating from scratch"
+# Always write our Caddyfile — the caddy package ships a default that we need
+# to replace.  Back up the existing file if it doesn't already contain our config.
+if [[ -f "${CADDY_CONF}" ]] && ! grep -q '/srv/offline/portal' "${CADDY_CONF}"; then
+    cp "${CADDY_CONF}" "${CADDY_CONF}.bak-$(date +%Y%m%d%H%M%S)"
+    info "  Backed up existing Caddyfile"
+fi
+
+if grep -q 'maps/tiles' "${CADDY_CONF}" 2>/dev/null && \
+   grep -q '/srv/offline/portal' "${CADDY_CONF}" 2>/dev/null; then
+    info "  Caddyfile: already configured for SURVIVE"
+else
     mkdir -p "$(dirname "${CADDY_CONF}")"
     cat > "${CADDY_CONF}" <<'CADDYFILE'
 # SURVIVE offline library — Caddy portal and reverse proxy
@@ -528,55 +537,7 @@ if [[ ! -f "${CADDY_CONF}" ]]; then
     file_server
 }
 CADDYFILE
-    info "  Caddyfile created at ${CADDY_CONF}"
-else
-    # Caddyfile already exists — patch in the map routes if not present
-    if grep -q 'maps/tiles' "${CADDY_CONF}"; then
-        info "  Caddyfile: already contains map routes"
-    else
-        info "  Patching existing Caddyfile..."
-        cp "${CADDY_CONF}" "${CADDY_CONF}.bak-$(date +%Y%m%d%H%M%S)"
-
-        python3 - "${CADDY_CONF}" <<'PYEOF'
-import sys
-
-conf_file = sys.argv[1]
-with open(conf_file) as f:
-    content = f.read()
-
-new_blocks = """
-    handle /maps/tiles/* {
-        uri strip_prefix /maps/tiles
-        reverse_proxy 127.0.0.1:8082
-    }
-
-    handle /maps/download/* {
-        root * /srv/offline/maps/tiles
-        uri strip_prefix /maps/download
-        file_server
-    }
-
-"""
-
-marker = "root * /srv/offline/portal"
-if marker in content:
-    content = content.replace(marker, new_blocks + "    " + marker, 1)
-    with open(conf_file, "w") as f:
-        f.write(content)
-    print("Caddyfile patched successfully")
-else:
-    print(f"WARNING: Could not find insertion point '{marker}' in Caddyfile")
-    print("Add the map route blocks manually before 'root * /srv/offline/portal'")
-PYEOF
-
-        if caddy validate --config "${CADDY_CONF}" &>/dev/null; then
-            info "  Caddyfile: patched and valid"
-        else
-            warn "  Caddyfile validation failed — restoring backup"
-            latest_backup=$(ls -t "${CADDY_CONF}".bak-* 2>/dev/null | head -1)
-            [[ -n "${latest_backup}" ]] && cp "${latest_backup}" "${CADDY_CONF}"
-        fi
-    fi
+    info "  Caddyfile written to ${CADDY_CONF}"
 fi
 
 # Enable and start Caddy
@@ -584,18 +545,28 @@ systemctl enable --now caddy 2>/dev/null && \
     info "  caddy.service: enabled and started" || \
     warn "  caddy enable failed — check: systemctl status caddy"
 
-# ── step 9: patch nftables ────────────────────────────────────────────────────
-info "Step 9: Patching nftables for survive service ports (80, 8080, 8081, 8082)"
+# ── step 9: open firewall ports for survive services ─────────────────────────
+info "Step 9: Opening firewall ports (80, 8080, 8081, 8082)"
 
-if [[ ! -f "${NFTABLES_CONF}" ]]; then
-    warn "  ${NFTABLES_CONF} not found — skipping nftables patch"
-    warn "  Add these ports manually inside the 'chain input' block:"
-    warn "    tcp dport { 80, 8080, 8081, 8082 } accept comment \"allow survive services\""
-else
+SURVIVE_PORTS=(80 8080 8081 8082)
+
+if systemctl is-active --quiet firewalld 2>/dev/null; then
+    # firewalld is running — use firewall-cmd (editing nftables.conf directly
+    # is ineffective because firewalld owns the nftables ruleset)
+    info "  firewalld detected — using firewall-cmd"
+    firewall-cmd --permanent --add-service=http 2>/dev/null || true
+    for port in 8080 8081 8082; do
+        firewall-cmd --permanent --add-port="${port}/tcp" 2>/dev/null || true
+    done
+    firewall-cmd --reload 2>/dev/null && \
+        info "  firewalld: ports opened and reloaded" || \
+        warn "  firewall-cmd reload failed — run manually: sudo firewall-cmd --reload"
+elif [[ -f "${NFTABLES_CONF}" ]]; then
+    # Plain nftables — patch the config file directly
     if grep -q 'allow survive services' "${NFTABLES_CONF}"; then
         info "  nftables: survive ports already present"
     else
-        info "  Adding survive service ports to nftables..."
+        info "  Patching nftables config..."
         cp "${NFTABLES_CONF}" "${NFTABLES_CONF}.bak-$(date +%Y%m%d%H%M%S)"
 
         python3 - "${NFTABLES_CONF}" <<'PYEOF'
@@ -608,7 +579,7 @@ with open(path) as f:
 SURVIVE_PORTS = ['80', '8080', '8081', '8082']
 NEW_RULE = '    tcp dport { ' + ', '.join(SURVIVE_PORTS) + ' } accept comment "allow survive services"\n'
 
-# Pattern 1: existing tcp dport list — append our missing ports to it
+# Pattern 1: existing tcp dport list — append our missing ports
 def add_to_dport_list(m):
     inner = m.group(1)
     ports = [p.strip() for p in inner.split(',')]
@@ -624,8 +595,7 @@ if n > 0:
     print(f"nftables: added survive ports to existing tcp dport list ({n} match(es))")
     sys.exit(0)
 
-# Pattern 2: individual tcp dport rules (e.g. "tcp dport ssh accept") —
-# insert our new rule block immediately after the last one found
+# Pattern 2: individual tcp dport rules — insert after the last one
 new_content, n = re.subn(
     r'([ \t]*tcp dport \S+ accept[^\n]*\n)(?![ \t]*tcp dport)',
     r'\1' + NEW_RULE,
@@ -637,12 +607,11 @@ if n > 0:
     print("nftables: inserted survive ports rule after existing tcp dport rule")
     sys.exit(0)
 
-# Fallback: insert before the closing brace of chain input
+# Fallback: insert before closing brace of chain input
 new_content, n = re.subn(
     r'(chain input \{[^}]+?)([ \t]*\})',
     lambda m: m.group(1) + NEW_RULE + m.group(2),
-    content,
-    flags=re.DOTALL
+    content, flags=re.DOTALL
 )
 if n > 0:
     with open(path, 'w') as f:
@@ -651,19 +620,21 @@ if n > 0:
     sys.exit(0)
 
 print("WARNING: could not find insertion point in nftables config")
-print("Add the following rule manually inside the 'chain input' block:")
+print("Add this rule manually inside the 'chain input' block:")
 print(f"  {NEW_RULE.strip()}")
 PYEOF
 
         if systemctl is-active --quiet nftables 2>/dev/null; then
             nft -f "${NFTABLES_CONF}" && \
-                info "  nftables: reloaded with survive service ports" || \
-                warn "  nftables reload failed — run manually: sudo nft -f ${NFTABLES_CONF}"
+                info "  nftables: reloaded with survive ports" || \
+                warn "  nftables reload failed — run: sudo nft -f ${NFTABLES_CONF}"
         else
-            info "  nftables: config updated (service not active — will apply on next start)"
-            info "  To apply now: sudo systemctl enable --now nftables"
+            info "  nftables: config updated (not active — enable with: systemctl enable --now nftables)"
         fi
     fi
+else
+    warn "  No firewalld or nftables config found — open ports manually:"
+    warn "  tcp ports: 80, 8080, 8081, 8082"
 fi
 
 # ── step 10: ownership ────────────────────────────────────────────────────────
