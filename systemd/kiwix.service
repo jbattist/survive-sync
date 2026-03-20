@@ -16,8 +16,9 @@ Group=library
 # service start cleanly before any ZIM files have been downloaded.
 ExecStart=/usr/bin/kiwix-serve \
     --library /srv/offline/kiwix/library.xml \
-    --urlroot /wiki \
-    --port 8080
+    --urlRootLocation=/wiki \
+    --port=8080 \
+    --monitorLibrary
 
 Restart=on-failure
 RestartSec=10
