@@ -478,17 +478,14 @@ cp "${SCRIPT_DIR}/systemd/survive-sync.timer"      "${SYSTEMD_DIR}/"
 
 systemctl daemon-reload
 
-systemctl enable --now kiwix.service && \
-    info "  kiwix.service: enabled and started" || \
-    warn "  kiwix.service: enable failed (check: systemctl status kiwix)"
-
-systemctl enable --now calibre-server.service && \
-    info "  calibre-server.service: enabled and started" || \
-    warn "  calibre-server.service: enable failed (check: systemctl status calibre-server)"
-
-systemctl enable --now mbtileserver.service && \
-    info "  mbtileserver.service: enabled and started" || \
-    warn "  mbtileserver.service: enable failed (check: systemctl status mbtileserver)"
+# Explicitly restart each service so updated unit files (and any changed flags)
+# take effect immediately, not just on next boot.
+for svc in kiwix.service calibre-server.service mbtileserver.service; do
+    systemctl enable "${svc}" 2>/dev/null || true
+    systemctl restart "${svc}" && \
+        info "  ${svc}: enabled and restarted" || \
+        warn "  ${svc}: restart failed (check: systemctl status ${svc})"
+done
 
 systemctl enable survive-sync.timer && \
     info "  survive-sync.timer: enabled" || \
