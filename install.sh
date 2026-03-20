@@ -348,6 +348,27 @@ for d in "${dirs[@]}"; do
 done
 info "  Directories: OK"
 
+# Initialize Calibre library if not already done.
+# calibre-server refuses to start if metadata.db doesn't exist — it does NOT
+# auto-create the library from an empty directory.
+CALIBRE_LIB="${OFFLINE_ROOT}/books/calibre-library"
+if [[ ! -f "${CALIBRE_LIB}/metadata.db" ]]; then
+    info "  Initializing empty Calibre library..."
+    chown library:library "${CALIBRE_LIB}"
+    _dummy=$(mktemp /tmp/calibre-init-XXXXXX.txt)
+    echo "init" > "${_dummy}"
+    sudo -u library calibredb add --with-library "${CALIBRE_LIB}" "${_dummy}" \
+        > /dev/null 2>&1 && \
+        sudo -u library calibredb remove --with-library "${CALIBRE_LIB}" 1 \
+        > /dev/null 2>&1 || true
+    rm -f "${_dummy}"
+    [[ -f "${CALIBRE_LIB}/metadata.db" ]] && \
+        info "  Calibre library: initialized (empty)" || \
+        warn "  Calibre library init failed — books service may not start"
+else
+    info "  Calibre library: already present"
+fi
+
 # Create a stub kiwix library.xml if one does not exist yet.
 # kiwix-serve refuses to start without this file; real entries are added by
 # update-kiwix-library.sh after each sync.
