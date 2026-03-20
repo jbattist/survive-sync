@@ -48,8 +48,8 @@ while IFS='|' read -r slug subdir description; do
     # Fetch directory listing and find newest file matching the slug
     remote_filename=$(
         curl -sf --max-time 30 "${dir_url}" 2>/dev/null \
-        | grep -oP "${slug}_[0-9]{4}-[0-9]{2}\.zim(?=[^.])" \
-        | sort -t_ -k"$(echo "${slug}" | tr -cd '_' | wc -c)+2" -r \
+        | grep -oP "${slug}_[0-9]{4}-[0-9]{2}\.zim(?=[^.])" 2>/dev/null \
+        | sort -r \
         | head -1
     ) || true
 
