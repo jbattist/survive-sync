@@ -21,8 +21,8 @@ cat <<EOF
   ├─────────────────────────────────────────────────────┤
   │  Portal     http://survive/             caddy:           $(_svc caddy)
   │  Wikipedia  http://survive:8080/        kiwix:           $(_svc kiwix)
-  │  Books      http://survive:8081/        calibre-server:  $(_svc calibre-server)
-  │  Maps       http://survive:8082/        mbtileserver:    $(_svc mbtileserver)
+  │  Books      http://survive/books/       calibre-server:  $(_svc calibre-server)
+  │  Maps       http://survive/maps/        mbtileserver:    $(_svc mbtileserver)
   ├─────────────────────────────────────────────────────┤
   │  Sync:    sudo systemctl start survive-sync
   │  Log:     journalctl -u survive-sync -f

@@ -15,6 +15,7 @@ Group=library
 # before any books have been synced.
 ExecStart=/usr/bin/calibre-server \
     --port 8081 \
+    --url-prefix /books \
     --listen-on 0.0.0.0 \
     /srv/offline/books/calibre-library
 
