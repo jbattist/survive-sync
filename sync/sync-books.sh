@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # sync-books.sh — download EPUBs from Project Gutenberg and Standard Ebooks
 # Ingests new files into the Calibre library via `calibredb add`.
-# Skips files already present by output filename.
+# Tracks ingested slugs in a local archive file (like yt-dlp) to avoid
+# re-adding books and to stay compatible with any calibredb version.
 #
 # Called by sync-all.sh with:
 #   sync-books.sh --config <config_dir> --log <log_file>
@@ -21,6 +22,11 @@ done
 CONF="${CONFIG_DIR}/book-list.conf"
 EPUB_DIR="/srv/offline/books/epub"
 CALIBRE_LIB="/srv/offline/books/calibre-library"
+# Archive file tracks slugs already ingested into the Calibre library.
+# One slug per line.  Prevents re-adding books on every sync run and avoids
+# depending on any specific calibredb flag (--dont-add-duplicates and
+# --dont-notify-gui were both removed in newer Calibre versions).
+INGEST_ARCHIVE="/srv/offline/books/.calibre-ingested.txt"
 TMP_DIR="/tmp/survive-books-$$"
 
 GUTENBERG_BASE="https://www.gutenberg.org/ebooks"
@@ -32,18 +38,30 @@ log()  { echo "[BOOK][$(date '+%H:%M:%S')] $*" | tee -a "${LOG_FILE}"; }
 fail() { log "FAIL $*"; (( failed++ )) || true; }
 
 mkdir -p "${TMP_DIR}" "${EPUB_DIR}" "${CALIBRE_LIB}"
+touch "${INGEST_ARCHIVE}"
 trap 'rm -rf "${TMP_DIR}"' EXIT
 
+# Returns 0 if slug has already been ingested into the Calibre library.
+already_ingested() {
+    grep -qxF "$1" "${INGEST_ARCHIVE}"
+}
+
+# Adds file to Calibre library and records the slug in the archive on success.
 calibredb_add() {
     local file="$1"
+    local slug="$2"
     if command -v calibredb &>/dev/null; then
-        calibredb add \
-            --with-library "${CALIBRE_LIB}" \
-            --dont-add-duplicates \
-            "${file}" 2>&1 | tee -a "${LOG_FILE}" || \
+        if calibredb add \
+                --with-library "${CALIBRE_LIB}" \
+                "${file}" 2>&1 | tee -a "${LOG_FILE}"; then
+            echo "${slug}" >> "${INGEST_ARCHIVE}"
+        else
             log "WARN: calibredb add failed for $(basename "${file}") (non-fatal)"
+        fi
     else
         log "WARN: calibredb not found; EPUB copied to epub dir only"
+        # Still mark as ingested so we don't keep retrying on every run
+        echo "${slug}" >> "${INGEST_ARCHIVE}"
     fi
 }
 
@@ -56,12 +74,19 @@ while IFS=$'\t' read -r source id_or_slug local_base category priority title; do
 
     dest_file="${EPUB_DIR}/${local_base}.epub"
 
-    if [[ -f "${dest_file}" ]]; then
-        # File already downloaded — skip download but still ensure it's in the Calibre library.
-        # (EPUBs may have been downloaded before Calibre was configured, or the library wiped.)
-        log "SKIP download ${local_base} (already on disk, ensuring in library)"
-        calibredb_add "${dest_file}"
+    # If already ingested into Calibre, nothing to do.
+    if already_ingested "${local_base}"; then
+        log "SKIP ${local_base} (in library)"
         (( skipped++ )) || true
+        continue
+    fi
+
+    # EPUB on disk but not yet ingested (e.g. downloaded before Calibre was
+    # set up, or the ingest archive was wiped).  Skip re-download, add only.
+    if [[ -f "${dest_file}" ]]; then
+        log "INGEST ${title:-${local_base}} (on disk, not yet in library)"
+        calibredb_add "${dest_file}" "${local_base}"
+        (( added++ )) || true
         continue
     fi
 
@@ -118,7 +143,7 @@ while IFS=$'\t' read -r source id_or_slug local_base category priority title; do
     fi
 
     cp "${tmp_file}" "${dest_file}"
-    calibredb_add "${dest_file}"
+    calibredb_add "${dest_file}" "${local_base}"
     (( added++ )) || true
 
 done < <(grep -v '^[[:space:]]*$' "${CONF}")
