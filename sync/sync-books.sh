@@ -48,13 +48,13 @@ CALIBRE_WAS_RUNNING=false
 if systemctl is-active --quiet calibre-server 2>/dev/null; then
     CALIBRE_WAS_RUNNING=true
     log "Stopping calibre-server for library ingest..."
-    sudo systemctl stop calibre-server
+    sudo systemctl stop calibre-server.service
 fi
 _restart_calibre() {
     rm -rf "${TMP_DIR}"
     if ${CALIBRE_WAS_RUNNING}; then
         log "Restarting calibre-server..."
-        sudo systemctl start calibre-server || true
+        sudo systemctl start calibre-server.service || true
     fi
 }
 trap '_restart_calibre' EXIT
