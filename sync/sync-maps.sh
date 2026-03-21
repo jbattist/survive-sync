@@ -216,11 +216,21 @@ except:
     # Deduplicate: keep only the most recently published edition of each quad name.
     # Quad name = title with the year stripped (e.g. "USGS US Topo ... Ansonia, CT").
     # Then download any quads not already on disk.
-    echo "${response}" | python3 - "${dest_dir}" <<'PYEOF'
+    #
+    # NOTE: bash pipe+heredoc stdin conflict — when both "|" and "<<HEREDOC" are
+    # present, the heredoc wins for stdin, so the pipe data is never read by Python.
+    # Fix: write JSON to a temp file and pass its path as an extra argument.
+    local tmp_json
+    tmp_json=$(mktemp /tmp/survive-topo-XXXXXX.json)
+    printf '%s' "${response}" > "${tmp_json}"
+
+    python3 - "${dest_dir}" "${tmp_json}" <<'PYEOF'
 import sys, json, os, subprocess, re
 
-dest_dir = sys.argv[1]
-data = json.load(sys.stdin)
+dest_dir  = sys.argv[1]
+json_path = sys.argv[2]
+with open(json_path) as fh:
+    data = json.load(fh)
 items = data.get("items", [])
 
 # Deduplicate: for each quad (title without trailing year), keep most recent.
@@ -264,6 +274,7 @@ for item in best.values():
             os.remove(dest)
 PYEOF
 
+    rm -f "${tmp_json}"
     (( topo_added++ )) || true
 }
 

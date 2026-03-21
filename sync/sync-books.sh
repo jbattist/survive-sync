@@ -41,6 +41,24 @@ mkdir -p "${TMP_DIR}" "${EPUB_DIR}" "${CALIBRE_LIB}"
 touch "${INGEST_ARCHIVE}"
 trap 'rm -rf "${TMP_DIR}"' EXIT
 
+# ── calibre-server management ─────────────────────────────────────────────────
+# calibredb cannot open the library while calibre-server has it locked.
+# Stop the server before any ingest, restart it on exit (even on error).
+CALIBRE_WAS_RUNNING=false
+if systemctl is-active --quiet calibre-server 2>/dev/null; then
+    CALIBRE_WAS_RUNNING=true
+    log "Stopping calibre-server for library ingest..."
+    systemctl stop calibre-server
+fi
+_restart_calibre() {
+    rm -rf "${TMP_DIR}"
+    if ${CALIBRE_WAS_RUNNING}; then
+        log "Restarting calibre-server..."
+        systemctl start calibre-server || true
+    fi
+}
+trap '_restart_calibre' EXIT
+
 # Returns 0 if slug has already been ingested into the Calibre library.
 already_ingested() {
     grep -qxF "$1" "${INGEST_ARCHIVE}"
