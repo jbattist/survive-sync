@@ -695,6 +695,9 @@ library ALL=(root) NOPASSWD: /usr/bin/systemctl restart kiwix.service
 library ALL=(root) NOPASSWD: /usr/bin/systemctl restart calibre-server.service
 library ALL=(root) NOPASSWD: /usr/bin/systemctl restart caddy.service
 library ALL=(root) NOPASSWD: /usr/bin/systemctl restart mbtileserver.service
+# Allow stop/start for calibre-server (needed by sync-books.sh to avoid library lock conflict)
+library ALL=(root) NOPASSWD: /usr/bin/systemctl stop calibre-server.service
+library ALL=(root) NOPASSWD: /usr/bin/systemctl start calibre-server.service
 SUDOERS
 chmod 0440 "${SUDOERS_FILE}"
 info "  Sudoers: ${SUDOERS_FILE}"
