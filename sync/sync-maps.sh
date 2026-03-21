@@ -182,17 +182,15 @@ process_usgs_topo() {
 
     log "Checking USGS topo quads for ${state_abbr}"
 
-    # Query TNM API: 1:24000 scale, state filter, PDF format
-    local api_url="${USGS_TNM_API}?datasets=National%20Geologic%20Map%20Database&"
-    api_url+="bbox=&q=&dateType=&startDate=&endDate=&offset=0&max=50"
-    api_url+="&outputFormat=json&q=${state_abbr}&datasets=US%20Topo"
-
-    # Simpler direct query for US Topo PDFs by state
-    local topo_url="${USGS_TNM_API}?datasets=US%20Topo&"
-    topo_url+="prodFormats=PDF&q=${state_abbr}&max=100&outputFormat=json"
+    # Query TNM API for US Topo GeoPDF quads by state.
+    # NOTE: prodFormats must be "GeoPDF" — the API returns 0 results for "PDF".
+    # max=500 fetches multiple editions per quad; the Python below deduplicates,
+    # keeping only the most recently published edition of each quad name.
+    local topo_url="${USGS_TNM_API}?datasets=US%20Topo"
+    topo_url+="&prodFormats=GeoPDF&q=${state_abbr}&max=500&outputFormat=json"
 
     local response
-    response=$(curl -sf --max-time 30 "${topo_url}" 2>/dev/null) || {
+    response=$(curl -sf --max-time 60 "${topo_url}" 2>/dev/null) || {
         fail "${state_abbr}: USGS API unreachable"
         return 1
     }
@@ -213,9 +211,11 @@ except:
         return 0
     fi
 
-    log "  Found ${count} topo quads for ${state_abbr}; downloading new ones..."
+    log "  Found ${count} topo quad editions for ${state_abbr}; deduplicating and downloading new ones..."
 
-    # Extract download URLs and titles
+    # Deduplicate: keep only the most recently published edition of each quad name.
+    # Quad name = title with the year stripped (e.g. "USGS US Topo ... Ansonia, CT").
+    # Then download any quads not already on disk.
     echo "${response}" | python3 - "${dest_dir}" <<'PYEOF'
 import sys, json, os, subprocess, re
 
@@ -223,31 +223,45 @@ dest_dir = sys.argv[1]
 data = json.load(sys.stdin)
 items = data.get("items", [])
 
-for item in items:
-    title = item.get("title", "untitled")
-    urls = item.get("downloadURL", item.get("downloadURLs", []))
-    if isinstance(urls, str):
-        urls = [urls]
+# Deduplicate: for each quad (title without trailing year), keep most recent.
+# Title format: "USGS US Topo 7.5-minute map for <QuadName> YYYY"
+def quad_key(title):
+    return re.sub(r'\s+\d{4}$', '', title).strip()
 
-    for url in urls:
-        if not url.endswith(".pdf"):
-            continue
-        # Sanitize filename
-        fname = re.sub(r"[^a-zA-Z0-9._-]", "_", os.path.basename(url))
-        dest = os.path.join(dest_dir, fname)
+best = {}  # quad_key -> item with latest publicationDate
+for item in items:
+    title = item.get("title", "")
+    pub   = item.get("publicationDate", "1900-01-01") or "1900-01-01"
+    key   = quad_key(title)
+    if key not in best or pub > best[key]["publicationDate"]:
+        best[key] = item
+
+print(f"  Unique quads after dedup: {len(best)}", flush=True)
+
+for item in best.values():
+    url = item.get("downloadURL", "")
+    if not url:
+        # Fallback: first GeoPDF URL from the urls dict
+        url = (item.get("urls") or {}).get("GeoPDF", "")
+    if not url or not url.lower().endswith(".pdf"):
+        continue
+
+    fname = re.sub(r"[^a-zA-Z0-9._-]", "_", os.path.basename(url))
+    dest  = os.path.join(dest_dir, fname)
+    if os.path.exists(dest):
+        continue
+
+    print(f"  DL {fname}", flush=True)
+    ret = subprocess.run(
+        ["wget", "-q", "--timeout=60", "--tries=2",
+         "--user-agent=survive-sync/1.0",
+         "-O", dest, url],
+        capture_output=True
+    )
+    if ret.returncode != 0 or os.path.getsize(dest) < 10240:
+        print(f"  FAIL {fname}", flush=True)
         if os.path.exists(dest):
-            continue
-        print(f"DL {fname}")
-        ret = subprocess.run(
-            ["wget", "-q", "--timeout=30", "--tries=2",
-             "--user-agent=survive-sync/1.0",
-             "-O", dest, url],
-            capture_output=True
-        )
-        if ret.returncode != 0 or os.path.getsize(dest) < 10240:
-            print(f"FAIL {fname}")
-            if os.path.exists(dest):
-                os.remove(dest)
+            os.remove(dest)
 PYEOF
 
     (( topo_added++ )) || true
