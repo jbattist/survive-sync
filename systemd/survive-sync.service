@@ -4,7 +4,6 @@ Documentation=file:///srv/offline/scripts/sync/sync-all.sh
 # Requires internet — wait for a routable network connection
 After=network-online.target srv-offline.mount
 Wants=network-online.target srv-offline.mount
-# Do not run while AP mode is active and serving clients (best-effort)
 # sync-all.sh checks for connectivity and a mounted drive before downloading.
 
 [Service]
@@ -13,8 +12,6 @@ Type=oneshot
 User=library
 Group=library
 
-# Pass the scripts location via environment so sync-all.sh can find siblings
-Environment=SCRIPT_DIR=/srv/offline/scripts/sync
 ExecStart=/srv/offline/scripts/sync/sync-all.sh
 
 # Allow the sync to take a very long time (Wikipedia ZIM is ~100 GB)

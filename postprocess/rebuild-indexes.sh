@@ -106,7 +106,7 @@ build_index \
 build_index \
     "${INDEX_DIR}/top-100-phone-first.md" \
     "Top 100 Resources — Phone First" \
-    "P1 and P2 priority items. This index is formatted for quick reference on a mobile phone. Open links from the portal at http://192.168.50.1" \
+    "P1 and P2 priority items. This index is formatted for quick reference on a mobile phone. Open links from the portal at http://survive.travel" \
     "P1|P2" \
     100
 

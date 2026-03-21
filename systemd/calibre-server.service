@@ -11,8 +11,8 @@ Type=simple
 User=library
 Group=library
 
-# calibre-server creates an empty library if none exists yet — safe to start
-# before any books have been synced.
+# calibre-server does NOT auto-create a library — install.sh initializes it in step 3.
+# The service will fail without an existing metadata.db; safe to start before books are synced.
 ExecStart=/usr/bin/calibre-server \
     --port 8081 \
     --url-prefix /books \

@@ -322,7 +322,7 @@ SYNC_MODULES='pdfs' sudo systemctl start survive-sync.service</code></pre>
 
   <h3>Examples</h3>
 <pre><code># Single YouTube video (ID only)
-video	lJLSzWjGKMY	first-aid	cpr	AHA Hands-Only CPR
+video	M4ACYp75mjU	first-aid	cpr	AHA Hands-Only CPR
 
 # archive.org direct MP4 URL
 video	https://archive.org/download/BigBuckBunny_328/BigBuckBunny_512kb.mp4	morale	family	Big Buck Bunny
@@ -336,10 +336,10 @@ channel	https://www.youtube.com/@StoptheBleed	first-aid	bleeding	Stop the Bleed 
   <h3>To re-download a video</h3>
   <p>yt-dlp records every downloaded video ID in <span class="ic">/srv/offline/video/.yt-dlp-archive.txt</span>. To re-fetch a specific video, remove its line from that file:</p>
 <pre><code># Find the entry (format: "youtube &lt;ID&gt;")
-grep lJLSzWjGKMY /srv/offline/video/.yt-dlp-archive.txt
+grep M4ACYp75mjU /srv/offline/video/.yt-dlp-archive.txt
 
 # Remove it
-sed -i '/lJLSzWjGKMY/d' /srv/offline/video/.yt-dlp-archive.txt
+sed -i '/M4ACYp75mjU/d' /srv/offline/video/.yt-dlp-archive.txt
 
 # Re-run video sync
 SYNC_MODULES='video' sudo systemctl start survive-sync.service</code></pre>

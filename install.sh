@@ -17,7 +17,7 @@
 #   3.  Creates all required directories under /srv/offline
 #   4.  Copies scripts, configs, and portal assets to /srv/offline
 #   5.  Downloads MapLibre GL JS and OpenMapTiles fonts for offline map viewer
-#   6.  Downloads MapLibre GL JS and OpenMapTiles fonts for offline map viewer
+#   6.  Downloads OpenMapTiles fonts for offline map labels
 #   7.  Installs systemd units for srv-offline.mount, mbtileserver, kiwix, calibre-server, survive-sync
 #   8.  Patches /etc/caddy/Caddyfile to add map tile and download routes
 #   9.  Patches /etc/nftables.conf to allow port 8082 (mbtileserver)
