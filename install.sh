@@ -419,14 +419,20 @@ else
     ML_VERSION=$(curl -sf --max-time 15 \
         "https://api.github.com/repos/maplibre/maplibre-gl-js/releases/latest" \
         | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'].lstrip('v'))" \
-        2>/dev/null) || ML_VERSION="4.5.2"
+        2>/dev/null) || ML_VERSION="5.21.0"
     info "  MapLibre GL JS version: ${ML_VERSION}"
 
-    ML_BASE="https://github.com/maplibre/maplibre-gl-js/releases/download/v${ML_VERSION}"
-    curl -L --max-time 120 -o "${MAPLIBRE_JS}"  "${ML_BASE}/maplibre-gl.js"  || \
-        warn "  Failed to download maplibre-gl.js — map viewer requires manual install"
-    curl -L --max-time 30  -o "${MAPLIBRE_CSS}" "${ML_BASE}/maplibre-gl.css" || \
-        warn "  Failed to download maplibre-gl.css"
+    # Since v5, MapLibre ships a single dist.zip instead of individual files.
+    ML_ZIP_URL="https://github.com/maplibre/maplibre-gl-js/releases/download/v${ML_VERSION}/dist.zip"
+    ML_TMP_ZIP="$(mktemp /tmp/maplibre-dist-XXXXXX.zip)"
+    if curl -L --max-time 120 -o "${ML_TMP_ZIP}" "${ML_ZIP_URL}"; then
+        unzip -p "${ML_TMP_ZIP}" maplibre-gl.js  > "${MAPLIBRE_JS}"  || warn "  maplibre-gl.js not found in dist.zip"
+        unzip -p "${ML_TMP_ZIP}" maplibre-gl.css > "${MAPLIBRE_CSS}" || warn "  maplibre-gl.css not found in dist.zip"
+        rm -f "${ML_TMP_ZIP}"
+    else
+        warn "  Failed to download MapLibre dist.zip — map viewer requires manual install"
+        rm -f "${ML_TMP_ZIP}"
+    fi
 fi
 
 # ── step 6: download OpenMapTiles fonts for map labels ────────────────────────
