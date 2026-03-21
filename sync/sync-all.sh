@@ -81,8 +81,7 @@ for module in ${MODULES}; do
 
     if bash "${module_script}" \
             --config "${CONFIG_DIR}" \
-            --log "${LOG_FILE}" \
-            2>&1 | tee -a "${LOG_FILE}"; then
+            --log "${LOG_FILE}"; then
         MODULE_STATUS["${module}"]="OK"
     else
         MODULE_STATUS["${module}"]="FAIL"
