@@ -149,8 +149,9 @@
   // Build a MapLibre style for a given state/tileset served by mbtileserver.
   // mbtileserver exposes tiles at:
   //   /maps/tiles/services/{name}/tiles/{z}/{x}/{y}.pbf
-  // and TileJSON at:
-  //   /maps/tiles/services/{name}
+  // We specify tiles directly (NOT via TileJSON url:) because mbtileserver's
+  // TileJSON returns absolute tile URLs pointing to its internal backend port,
+  // which bypasses Caddy's /maps/tiles prefix-stripping proxy and breaks tiles.
   function buildStyle(stateName) {
     return {
       version: 8,
@@ -158,8 +159,9 @@
       sources: {
         osm: {
           type: 'vector',
-          url: '/maps/tiles/services/' + stateName,
-          // TileJSON served by mbtileserver includes tiles, minzoom, maxzoom
+          tiles: [location.origin + '/maps/tiles/services/' + stateName + '/tiles/{z}/{x}/{y}.pbf'],
+          minzoom: 0,
+          maxzoom: 14
         }
       },
       layers: [

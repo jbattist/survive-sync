@@ -39,7 +39,6 @@ calibredb_add() {
     if command -v calibredb &>/dev/null; then
         calibredb add \
             --with-library "${CALIBRE_LIB}" \
-            --dont-notify-gui \
             "${file}" 2>&1 | tee -a "${LOG_FILE}" || \
             log "WARN: calibredb add failed for $(basename "${file}") (non-fatal)"
     else
