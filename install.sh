@@ -426,8 +426,8 @@ else
     ML_ZIP_URL="https://github.com/maplibre/maplibre-gl-js/releases/download/v${ML_VERSION}/dist.zip"
     ML_TMP_ZIP="$(mktemp /tmp/maplibre-dist-XXXXXX.zip)"
     if curl -L --max-time 120 -o "${ML_TMP_ZIP}" "${ML_ZIP_URL}"; then
-        unzip -p "${ML_TMP_ZIP}" maplibre-gl.js  > "${MAPLIBRE_JS}"  || warn "  maplibre-gl.js not found in dist.zip"
-        unzip -p "${ML_TMP_ZIP}" maplibre-gl.css > "${MAPLIBRE_CSS}" || warn "  maplibre-gl.css not found in dist.zip"
+        unzip -p "${ML_TMP_ZIP}" dist/maplibre-gl.js  > "${MAPLIBRE_JS}"  || warn "  dist/maplibre-gl.js not found in dist.zip"
+        unzip -p "${ML_TMP_ZIP}" dist/maplibre-gl.css > "${MAPLIBRE_CSS}" || warn "  dist/maplibre-gl.css not found in dist.zip"
         rm -f "${ML_TMP_ZIP}"
     else
         warn "  Failed to download MapLibre dist.zip — map viewer requires manual install"
