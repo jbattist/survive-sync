@@ -47,6 +47,7 @@ YTDLP_OPTS=(
     --embed-thumbnail
     --add-metadata
     --no-overwrites
+    --no-update                        # suppress "update your yt-dlp" warning
     --retries 3
     --fragment-retries 3
     --retry-sleep 10
