@@ -39,6 +39,7 @@ calibredb_add() {
     if command -v calibredb &>/dev/null; then
         calibredb add \
             --with-library "${CALIBRE_LIB}" \
+            --dont-add-duplicates \
             "${file}" 2>&1 | tee -a "${LOG_FILE}" || \
             log "WARN: calibredb add failed for $(basename "${file}") (non-fatal)"
     else
@@ -56,7 +57,10 @@ while IFS=$'\t' read -r source id_or_slug local_base category priority title; do
     dest_file="${EPUB_DIR}/${local_base}.epub"
 
     if [[ -f "${dest_file}" ]]; then
-        log "SKIP ${local_base}"
+        # File already downloaded — skip download but still ensure it's in the Calibre library.
+        # (EPUBs may have been downloaded before Calibre was configured, or the library wiped.)
+        log "SKIP download ${local_base} (already on disk, ensuring in library)"
+        calibredb_add "${dest_file}"
         (( skipped++ )) || true
         continue
     fi
