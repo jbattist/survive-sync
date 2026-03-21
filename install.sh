@@ -412,7 +412,7 @@ info "Step 5: Downloading MapLibre GL JS for offline map viewer"
 MAPLIBRE_JS="${PORTAL_DST}/maps/maplibre-gl.js"
 MAPLIBRE_CSS="${PORTAL_DST}/maps/maplibre-gl.css"
 
-if [[ -f "${MAPLIBRE_JS}" ]] && [[ -s "${MAPLIBRE_JS}" ]]; then
+if [[ -f "${MAPLIBRE_JS}" ]] && [[ $(stat -c%s "${MAPLIBRE_JS}" 2>/dev/null || echo 0) -gt 100000 ]]; then
     info "  MapLibre GL JS: already present"
 else
     info "  Fetching latest MapLibre GL JS release..."
