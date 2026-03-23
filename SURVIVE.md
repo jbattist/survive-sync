@@ -75,8 +75,9 @@ No raw service ports are exposed to clients.
 │   ├── power/
 │   ├── food/
 │   └── morale/
+├── metadata/           hash records used by sync-pdfs.sh (sha256sums-pdfs.txt)
 ├── scripts/            sync scripts and configs (copied from this repo)
-└── logs/
+└── logs/               sync-YYYY-MM-DD.log (one per day)
 ```
 
 ---
@@ -155,6 +156,25 @@ journalctl -u survive-sync -n 100 --no-pager
 systemctl status survive-sync
 ```
 
+### Reading Sync Logs
+
+Each sync run writes a detailed log at `/srv/offline/logs/sync-YYYY-MM-DD.log`.
+`journalctl` shows the same output but this file is easier to grep.
+
+```bash
+# View today's log
+cat /srv/offline/logs/sync-$(date +%Y-%m-%d).log
+
+# Show only failures
+grep FAIL /srv/offline/logs/sync-$(date +%Y-%m-%d).log
+
+# List all log files
+ls -lh /srv/offline/logs/
+```
+
+Each module prefixes its lines: `[ZIM]`, `[PDF]`, `[VIDEO]`, `[MAPS]`, `[BOOKS]`.
+A run ends with a summary line per module: `added=N skipped=N failed=N`.
+
 ---
 
 ## Service Management
@@ -192,6 +212,49 @@ journalctl -u mbtileserver -f
 ---
 
 ## Troubleshooting
+
+### Sync FAIL entries
+
+First, check whether the failure is transient or permanent.
+
+**Transient** — a re-run fixes it:
+- Archive.org outage (returns 503 — can affect dozens of PDFs at once)
+- USGS/government sites timing out or rate-limiting
+- Network blip during download
+
+```bash
+# Rerun just the affected module to confirm
+SYNC_MODULES='pdfs' sudo systemctl start survive-sync.service
+journalctl -u survive-sync -f
+```
+
+**Permanent** — re-runs won't help, config needs fixing:
+- URL redirects to a login/gated page → file downloads but fails the sanity check
+- URL has moved or the file was renamed upstream
+
+The PDF sanity check rejects anything under 10 KB or that doesn't start with `%PDF`.
+A gated page that returns HTML will always fail this, even if wget exits 0.
+
+To test a specific URL manually:
+```bash
+wget -O /tmp/test.pdf "https://example.com/file.pdf"
+file /tmp/test.pdf            # should say "PDF document"
+wc -c /tmp/test.pdf           # should be much larger than 10240 bytes
+```
+
+If it returns HTML, the URL is broken. Comment it out in `config/pdf-sources.conf`
+with a note, then commit and redeploy.
+
+---
+
+### Video sync always shows `added=N skipped=0`
+
+This is a known cosmetic issue. `yt-dlp` exits 0 whether it downloaded something new
+or found all content already in its archive file. The script counts any exit-0 as
+`added`, so the counter is inflated. No actual re-downloading occurs — the archive
+file at `/srv/offline/video/.yt-dlp-archive.txt` prevents it. Safe to ignore.
+
+---
 
 ### Caddy serving its default page instead of the portal
 
@@ -356,6 +419,7 @@ All unit files live in `/etc/systemd/system/` and are sourced from this repo at 
 survive-sync/
 ├── install.sh                  deploy script — run with: sudo bash install.sh
 ├── SURVIVE.md                  this file
+├── AGENTS.md                   OpenCode session context (project rules + known issues)
 ├── NETWORK.md                  network/VPN setup guide
 ├── portal/                     web portal (copied to /srv/offline/portal/)
 │   ├── index.html
