@@ -8,12 +8,17 @@ See `SURVIVE.md` for full architecture, install, and operations reference.
 ## Project Identity
 
 - **Repo:** `git@github.com:jbattist/survive-sync.git`
+- **Dev machine:** `bunker` — OpenCode runs here, local repo at `~/projects/survive-sync/`
 - **Pi:** hostname `survive`, IP `192.168.8.2`, DNS `survive.travel`
-- **Local repo:** `~/projects/survive-sync/` (Joe's machine)
 - **Pi repo:** `~/survive-sync/` — deploy with `git pull && sudo bash install.sh`
 - **Guiding principle:** Simple, repairable, rebuildable. No Docker. Plain Linux services.
 - **Standard sync run:** `sudo systemctl start survive-sync.service`
 - **Monitor:** `journalctl -u survive-sync -f`
+
+## Workflow
+
+- After every change: **commit and push immediately** (no need to ask)
+- Joe pulls on `survive` to test: `git pull && sudo bash install.sh`
 
 ---
 
