@@ -405,9 +405,9 @@ if [[ -d "${SCRIPT_DIR}/admin" ]]; then
     cp -r "${SCRIPT_DIR}/admin/." "${SCRIPTS_DST}/admin/"
 fi
 
-chmod +x "${SCRIPTS_DST}/sync/"*.sh
-chmod +x "${SCRIPTS_DST}/postprocess/"*.sh
-[[ -d "${SCRIPTS_DST}/admin" ]] && chmod +x "${SCRIPTS_DST}/admin/"*.sh || true
+find "${SCRIPTS_DST}/sync"        -maxdepth 1 -name "*.sh" -exec chmod +x {} +
+find "${SCRIPTS_DST}/postprocess" -maxdepth 1 -name "*.sh" -exec chmod +x {} +
+find "${SCRIPTS_DST}/admin"       -maxdepth 1 -name "*.sh" -exec chmod +x {} + 2>/dev/null || true
 
 # Copy portal assets — both to live location and to scripts dir (so sync-all.sh can re-deploy)
 cp -r "${SCRIPT_DIR}/portal/." "${PORTAL_DST}/"
