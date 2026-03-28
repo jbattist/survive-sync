@@ -562,6 +562,8 @@ cp "${SCRIPT_DIR}/systemd/calibre-server.service"  "${SYSTEMD_DIR}/"
 cp "${SCRIPT_DIR}/systemd/mbtileserver.service"    "${SYSTEMD_DIR}/"
 cp "${SCRIPT_DIR}/systemd/survive-sync.service"    "${SYSTEMD_DIR}/"
 cp "${SCRIPT_DIR}/systemd/survive-sync.timer"      "${SYSTEMD_DIR}/"
+cp "${SCRIPT_DIR}/systemd/survive-books.service"   "${SYSTEMD_DIR}/"
+cp "${SCRIPT_DIR}/systemd/survive-books.timer"     "${SYSTEMD_DIR}/"
 
 systemctl daemon-reload
 
@@ -578,8 +580,13 @@ systemctl enable survive-sync.timer && \
     info "  survive-sync.timer: enabled" || \
     warn "  survive-sync.timer: enable failed"
 
-# Start the timer (does not start the service immediately)
+systemctl enable survive-books.timer && \
+    info "  survive-books.timer: enabled (hourly NAS book ingest)" || \
+    warn "  survive-books.timer: enable failed"
+
+# Start the timers (does not start the services immediately)
 systemctl start survive-sync.timer 2>/dev/null || true
+systemctl start survive-books.timer 2>/dev/null || true
 
 info "  Systemd units: OK"
 info "  Next sync: $(systemctl show survive-sync.timer --property=NextElapseUSecRealtime 2>/dev/null | cut -d= -f2 || echo unknown)"
@@ -796,6 +803,8 @@ echo "  calibre-server.service (port 8081 — books)"
 echo "  mbtileserver.service   (running now on port 8082 — map tiles)"
 echo "  survive-sync.service   (oneshot — runs sync-all.sh)"
 echo "  survive-sync.timer     (weekly, Sunday 02:00)"
+echo "  survive-books.service  (oneshot — runs sync-books.sh only)"
+echo "  survive-books.timer    (hourly — NAS book ingest)"
 echo ""
 echo "Run a sync manually:"
 echo "  systemctl start survive-sync.service"

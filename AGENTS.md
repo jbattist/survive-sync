@@ -13,10 +13,12 @@ See `SURVIVE.md` for full architecture, install, and operations reference.
 - **Pi repo:** `~/survive-sync/` — deploy with `git pull && sudo bash install.sh`
 - **Guiding principle:** Simple, repairable, rebuildable. No Docker. Plain Linux services.
 - **Standard sync run:** `sudo systemctl start survive-sync.service`
-- **Monitor:** `journalctl -u survive-sync -f`
+- **Books-only sync:** `sudo systemctl start survive-books.service`
+- **Monitor:** `journalctl -u survive-sync -f` or `journalctl -u survive-books -f`
 - **TrueNAS NFS book share:** `truenas.home:/mnt/hdd/books` → mounted at `/mnt/truenas-books` (ro, automount)
   - `install.sh` adds the fstab entry and installs `nfs-utils`
   - `sync-books.sh` scans the mount after the Gutenberg/StandardEbooks phase and ingests any `.epub` found
+  - `survive-books.timer` runs `sync-books.sh` hourly so NAS books appear in Calibre within an hour
 
 ## Workflow
 

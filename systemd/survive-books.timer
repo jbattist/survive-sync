@@ -1,0 +1,15 @@
+[Unit]
+Description=Hourly Survive Books Sync Timer
+Documentation=file:///srv/offline/scripts/sync/sync-books.sh
+
+[Timer]
+# Run at the top of every hour
+OnCalendar=hourly
+
+# If the Pi was offline at trigger time, run on next boot
+Persistent=true
+
+Unit=survive-books.service
+
+[Install]
+WantedBy=timers.target

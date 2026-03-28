@@ -1,0 +1,27 @@
+[Unit]
+Description=Survive Books Sync (NAS + Gutenberg ingest)
+Documentation=file:///srv/offline/scripts/sync/sync-books.sh
+After=network-online.target srv-offline.mount
+Wants=network-online.target srv-offline.mount
+# Don't run if the full sync is already running
+Conflicts=survive-sync.service
+
+[Service]
+Type=oneshot
+User=library
+Group=library
+
+ExecStart=/srv/offline/scripts/sync/sync-books.sh \
+    --config /srv/offline/scripts/config \
+    --log /srv/offline/logs/sync-%(%Y-%m-%d)T.log
+
+TimeoutStartSec=3600
+TimeoutStopSec=120
+
+StandardOutput=journal
+StandardError=journal
+
+OOMScoreAdjust=-100
+
+[Install]
+WantedBy=multi-user.target
