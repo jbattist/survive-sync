@@ -12,8 +12,7 @@ User=library
 Group=library
 
 ExecStart=/srv/offline/scripts/sync/sync-books.sh \
-    --config /srv/offline/scripts/config \
-    --log /srv/offline/logs/sync-%(%Y-%m-%d)T.log
+    --config /srv/offline/scripts/config
 
 TimeoutStartSec=3600
 TimeoutStopSec=120
