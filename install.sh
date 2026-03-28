@@ -14,6 +14,7 @@
 # What this script does:
 #   1.  Checks dependencies; installs tilemaker, mbtileserver, kiwix-tools, calibre, yt-dlp if missing
 #   2.  Formats and mounts the USB data drive at /srv/offline (label: survive-data)
+#   2b. Configures NFS mount for TrueNAS book share (truenas.home:/mnt/hdd/books → /mnt/truenas-books)
 #   3.  Creates all required directories under /srv/offline
 #   4.  Copies scripts, configs, and portal assets to /srv/offline
 #   5.  Downloads MapLibre GL JS and OpenMapTiles fonts for offline map viewer
@@ -289,6 +290,53 @@ setup_usb_drive() {
         info "  srv-offline.mount: enabled (auto-mounts at boot)" || true
 }
 setup_usb_drive
+
+# ── step 2b: configure NFS mount for TrueNAS book share ──────────────────────
+info "Step 2b: Configuring NFS mount for TrueNAS book share"
+
+NFS_HOST="truenas.home"
+NFS_EXPORT="/mnt/hdd/books"
+NFS_MOUNT="/mnt/truenas-books"
+NFS_FSTAB_ENTRY="${NFS_HOST}:${NFS_EXPORT}  ${NFS_MOUNT}  nfs  ro,soft,timeo=30,retrans=2,noauto,x-systemd.automount,x-systemd.mount-timeout=30  0  0"
+NFS_FSTAB_MARKER="survive-sync: truenas book share"
+
+# Ensure nfs-utils is installed
+if ! command -v mount.nfs &>/dev/null; then
+    info "  Installing nfs-utils..."
+    pacman -S --noconfirm --needed nfs-utils || \
+        warn "  nfs-utils install failed — NFS mount will not work"
+fi
+
+mkdir -p "${NFS_MOUNT}"
+
+# Add fstab entry (idempotent — only once)
+if grep -qF "${NFS_FSTAB_MARKER}" /etc/fstab 2>/dev/null; then
+    info "  fstab: NFS entry already present"
+else
+    {
+        echo ""
+        echo "# ${NFS_FSTAB_MARKER}"
+        echo "${NFS_FSTAB_ENTRY}"
+    } >> /etc/fstab
+    info "  fstab: added NFS entry (${NFS_HOST}:${NFS_EXPORT} → ${NFS_MOUNT})"
+fi
+
+# Attempt a test mount to verify connectivity (non-fatal)
+if mountpoint -q "${NFS_MOUNT}" 2>/dev/null; then
+    info "  ${NFS_MOUNT}: already mounted"
+else
+    info "  Testing NFS connectivity to ${NFS_HOST}..."
+    if mount -t nfs -o ro,soft,timeo=30,retrans=2 \
+            "${NFS_HOST}:${NFS_EXPORT}" "${NFS_MOUNT}" 2>/dev/null; then
+        EPUB_COUNT=$(find "${NFS_MOUNT}" -maxdepth 3 -name "*.epub" 2>/dev/null | wc -l)
+        info "  ${NFS_MOUNT}: mounted OK — ${EPUB_COUNT} EPUB(s) visible"
+    else
+        warn "  ${NFS_MOUNT}: could not mount now (TrueNAS may be offline)"
+        warn "  The fstab entry uses x-systemd.automount — it will mount on first access"
+        warn "  To test manually: sudo mount ${NFS_MOUNT}"
+    fi
+fi
+
 
 # ── step 3: create directory structure ────────────────────────────────────────
 info "Step 3: Creating directory structure under ${OFFLINE_ROOT}"
@@ -739,6 +787,7 @@ echo "Scripts installed to:  ${SCRIPTS_DST}"
 echo "Portal assets:         ${PORTAL_DST}/maps/"
 echo "Map tiles directory:   ${MAPS_TILES_DIR}"
 echo "Fonts directory:       ${FONTS_DIR}"
+echo "NFS book share:        ${NFS_MOUNT:-/mnt/truenas-books}  (ro, automount on access)"
 echo ""
 echo "Systemd units installed:"
 echo "  srv-offline.mount      (auto-mounts USB drive at /srv/offline on boot)"

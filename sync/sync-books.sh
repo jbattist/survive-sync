@@ -31,6 +31,7 @@ TMP_DIR="/tmp/survive-books-$$"
 
 GUTENBERG_BASE="https://www.gutenberg.org/ebooks"
 STDEBOOKS_BASE="https://standardebooks.org/ebooks"
+NFS_BOOKS_DIR="/mnt/truenas-books"
 
 added=0; skipped=0; failed=0
 
@@ -165,6 +166,62 @@ while IFS=$'\t' read -r source id_or_slug local_base category priority title; do
     (( added++ )) || true
 
 done < <(grep -v '^[[:space:]]*$' "${CONF}")
+
+# ── NFS share scan ─────────────────────────────────────────────────────────────
+# Copy any .epub files found on the TrueNAS share to the local EPUB dir and
+# ingest them into the Calibre library.  The ingest archive (slug = stem of the
+# filename) prevents re-adding books that are already in the library.
+# The share is mounted read-only; we copy to /srv/offline/books/epub locally.
+if [[ -d "${NFS_BOOKS_DIR}" ]] && mountpoint -q "${NFS_BOOKS_DIR}" 2>/dev/null; then
+    log "Scanning NFS share: ${NFS_BOOKS_DIR}"
+    nfs_added=0; nfs_skipped=0; nfs_failed=0
+
+    while IFS= read -r nfs_epub; do
+        nfs_base=$(basename "${nfs_epub}" .epub)
+        dest_file="${EPUB_DIR}/${nfs_base}.epub"
+
+        if already_ingested "${nfs_base}"; then
+            log "SKIP ${nfs_base} (NFS, already in library)"
+            (( nfs_skipped++ )) || true
+            continue
+        fi
+
+        # If it somehow landed on disk already, just ingest
+        if [[ -f "${dest_file}" ]]; then
+            log "INGEST ${nfs_base} (NFS, on disk, not yet in library)"
+            calibredb_add "${dest_file}" "${nfs_base}"
+            (( nfs_added++ )) || true
+            continue
+        fi
+
+        log "ADD ${nfs_base} (from NFS)"
+
+        # Validate on the source before copying
+        nfs_size=$(stat -c%s "${nfs_epub}" 2>/dev/null || echo 0)
+        nfs_header=$(head -c 2 "${nfs_epub}" 2>/dev/null || echo "")
+        if (( nfs_size < 5120 )) || [[ "${nfs_header}" != "PK" ]]; then
+            fail "${nfs_base}: NFS file invalid (${nfs_size} bytes, header='${nfs_header}')"
+            (( nfs_failed++ )) || true
+            continue
+        fi
+
+        if cp "${nfs_epub}" "${dest_file}"; then
+            calibredb_add "${dest_file}" "${nfs_base}"
+            (( nfs_added++ )) || true
+        else
+            fail "${nfs_base}: cp from NFS failed"
+            (( nfs_failed++ )) || true
+        fi
+
+    done < <(find "${NFS_BOOKS_DIR}" -name "*.epub" -type f 2>/dev/null | sort)
+
+    log "NFS scan done: added=${nfs_added} skipped=${nfs_skipped} failed=${nfs_failed}"
+    (( failed += nfs_failed )) || true
+    (( added  += nfs_added  )) || true
+    (( skipped += nfs_skipped )) || true
+else
+    log "NFS share not mounted (${NFS_BOOKS_DIR}) — skipping NFS scan"
+fi
 
 log "Done: added=${added} skipped=${skipped} failed=${failed}"
 (( failed > 0 )) && exit 1 || exit 0

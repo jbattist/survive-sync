@@ -14,6 +14,9 @@ See `SURVIVE.md` for full architecture, install, and operations reference.
 - **Guiding principle:** Simple, repairable, rebuildable. No Docker. Plain Linux services.
 - **Standard sync run:** `sudo systemctl start survive-sync.service`
 - **Monitor:** `journalctl -u survive-sync -f`
+- **TrueNAS NFS book share:** `truenas.home:/mnt/hdd/books` → mounted at `/mnt/truenas-books` (ro, automount)
+  - `install.sh` adds the fstab entry and installs `nfs-utils`
+  - `sync-books.sh` scans the mount after the Gutenberg/StandardEbooks phase and ingests any `.epub` found
 
 ## Workflow
 
