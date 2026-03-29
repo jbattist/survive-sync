@@ -19,7 +19,7 @@ See `SURVIVE.md` for full architecture, install, and operations reference.
   - `install.sh` adds the fstab entry and installs `nfs-utils`
   - `sync-books.sh` scans the mount after the Gutenberg/StandardEbooks phase and ingests any `.epub` found
   - `survive-books.timer` runs `sync-books.sh` every 30 min so NAS books appear in Calibre quickly
-- **TrueNAS NFS classics share:** `truenas.home:/mnt/hdd/media/Classics` → mounted at `/mnt/truenas-classics` (ro, automount)
+- **TrueNAS NFS classics share:** `truenas.home:/mnt/hdd/media-classics` → mounted at `/mnt/media-classics` (ro, automount)
   - `install.sh` adds the fstab entry
   - `sync-classics.sh` rsyncs all files to `/srv/offline/video/classics/` preserving folder structure
   - Wired into `sync-all.sh` as the `classics` module

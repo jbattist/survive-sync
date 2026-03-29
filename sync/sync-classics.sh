@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # sync-classics.sh — rsync classic movies from TrueNAS NFS share to local storage
 #
-# Source:      /mnt/truenas-classics  (NFS ro automount, truenas.home:/mnt/hdd/media/Classics)
+# Source:      /mnt/media-classics  (NFS ro automount, truenas.home:/mnt/hdd/media-classics)
 # Destination: /srv/offline/video/classics/
 #
 # Folder structure is preserved exactly as it exists on the NAS.
@@ -21,7 +21,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-NFS_MOUNT="/mnt/truenas-classics"
+NFS_MOUNT="/mnt/media-classics"
 DEST_DIR="/srv/offline/video/classics"
 
 added=0; skipped=0; failed=0
