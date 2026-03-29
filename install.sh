@@ -274,8 +274,9 @@ fi
 
 # jellyfin — media server for offline movie playback
 # The AUR 'jellyfin' package depends on aspnet-runtime-2.1 which is x86_64-only.
-# On aarch64 we download the official self-contained arm64-musl tarball from
+# On aarch64 we download the official glibc arm64 tarball from
 # repo.jellyfin.org and install it to /opt/jellyfin.
+# Note: use arm64 (glibc), NOT arm64-musl — EndeavourOS uses glibc.
 install_jellyfin() {
     local install_dir="/opt/jellyfin"
     local data_dir="/var/lib/jellyfin"
@@ -283,15 +284,18 @@ install_jellyfin() {
     local log_dir="/var/log/jellyfin"
     local config_dir="/etc/jellyfin"
 
-    # Already installed and up-to-date check
-    if [[ -x "${install_dir}/jellyfin" ]]; then
+    # Already installed check — verify binary exists AND actually executes
+    if [[ -x "${install_dir}/jellyfin" ]] && "${install_dir}/jellyfin" --version &>/dev/null; then
         local current_ver
         current_ver=$("${install_dir}/jellyfin" --version 2>/dev/null | awk '{print $1}' || echo "unknown")
         info "  jellyfin: already installed (${current_ver})"
         return 0
+    elif [[ -x "${install_dir}/jellyfin" ]]; then
+        warn "  jellyfin binary exists but won't run — reinstalling..."
+        rm -rf "${install_dir}"
     fi
 
-    info "  jellyfin: not found — installing from official arm64-musl tarball..."
+    info "  jellyfin: not found — installing from official arm64 (glibc) tarball..."
 
     # Resolve latest stable version
     local jf_version
@@ -301,7 +305,7 @@ install_jellyfin() {
         2>/dev/null) || jf_version="10.11.6"
     info "  jellyfin version: ${jf_version}"
 
-    local jf_url="https://repo.jellyfin.org/files/server/linux/stable/v${jf_version}/arm64-musl/jellyfin_${jf_version}-arm64-musl.tar.gz"
+    local jf_url="https://repo.jellyfin.org/files/server/linux/stable/v${jf_version}/arm64/jellyfin_${jf_version}-arm64.tar.gz"
     local jf_tmp
     jf_tmp=$(mktemp /tmp/jellyfin-XXXXXX.tar.gz)
 
