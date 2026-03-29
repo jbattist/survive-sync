@@ -174,15 +174,15 @@ SYNC_MODULES='pdfs books' sudo systemctl start survive-sync.service
 Both timers use `Persistent=true` — if the Pi was off at trigger time, they run on next boot.
 
 ```bash
-TERM=xterm systemctl list-timers survive-sync.timer survive-books.timer
+systemctl list-timers survive-sync.timer survive-books.timer
 ```
 
 ### Check Sync Status
 
 ```bash
-TERM=xterm journalctl -u survive-sync -n 100 --no-pager
-TERM=xterm journalctl -u survive-books -n 100 --no-pager
-TERM=xterm systemctl status survive-sync survive-books
+journalctl -u survive-sync -n 100 --no-pager
+journalctl -u survive-books -n 100 --no-pager
+systemctl status survive-sync survive-books
 ```
 
 ### Reading Sync Logs
@@ -244,7 +244,7 @@ sudo mount /mnt/truenas-books
 ### Status at a Glance
 
 ```bash
-TERM=xterm systemctl status caddy kiwix calibre-server mbtileserver --no-pager
+systemctl status caddy kiwix calibre-server mbtileserver --no-pager
 ```
 
 ### Restart All Services
@@ -265,28 +265,15 @@ sudo systemctl restart mbtileserver
 ### View Logs
 
 ```bash
-TERM=xterm journalctl -u caddy -f
-TERM=xterm journalctl -u kiwix -f
-TERM=xterm journalctl -u calibre-server -f
-TERM=xterm journalctl -u mbtileserver -f
+journalctl -u caddy -f
+journalctl -u kiwix -f
+journalctl -u calibre-server -f
+journalctl -u mbtileserver -f
 ```
 
 ---
 
 ## Troubleshooting
-
-### Terminal output swallowed / pager broken
-
-If using Ghostty or another modern terminal, systemd may not recognize the terminal type:
-
-```bash
-export TERM=xterm
-```
-
-Add to `~/.bashrc` on the Pi to make it permanent. Then `systemctl` output will display
-normally without needing `--no-pager` every time.
-
----
 
 ### Sync FAIL entries
 
@@ -300,7 +287,7 @@ First, check whether the failure is transient or permanent.
 ```bash
 # Rerun just the affected module to confirm
 SYNC_MODULES='pdfs' sudo systemctl start survive-sync.service
-TERM=xterm journalctl -u survive-sync -f
+journalctl -u survive-sync -f
 ```
 
 **Permanent** — re-runs won't help, config needs fixing:
@@ -348,8 +335,8 @@ sudo bash ~/survive-sync/install.sh   # step 8 always rewrites it
 
 Calibre isn't running. Check why:
 ```bash
-TERM=xterm systemctl status calibre-server
-TERM=xterm journalctl -u calibre-server -n 30 --no-pager
+systemctl status calibre-server
+journalctl -u calibre-server -n 30 --no-pager
 ```
 
 **"There is no calibre library"** — library was never initialized:
@@ -379,7 +366,7 @@ ls /mnt/truenas-books
 2. Force a books sync and watch the NFS scan section:
 ```bash
 sudo systemctl start survive-books.service
-TERM=xterm journalctl -u survive-books -f
+journalctl -u survive-books -f
 ```
 
 3. Check the ingest archive to see if a book was already recorded:
@@ -393,20 +380,20 @@ If a book is in the archive but not in Calibre (e.g. archive was manually edited
 ### Wikipedia — 502 Bad Gateway
 
 ```bash
-TERM=xterm systemctl status kiwix
-TERM=xterm journalctl -u kiwix -n 30 --no-pager
+systemctl status kiwix
+journalctl -u kiwix -n 30 --no-pager
 ```
 
 No ZIM files yet — sync hasn't finished. Check progress:
 ```bash
 ls -lh /srv/offline/kiwix/zim/
-TERM=xterm journalctl -u survive-sync -n 50 --no-pager
+journalctl -u survive-sync -n 50 --no-pager
 ```
 
 ### Maps not loading
 
 ```bash
-TERM=xterm systemctl status mbtileserver
+systemctl status mbtileserver
 ls /srv/offline/maps/tiles/*.mbtiles    # files must exist
 ```
 
@@ -417,7 +404,7 @@ If no `.mbtiles` files: maps sync hasn't run or failed. Check sync logs.
 The SSD isn't mounted. All services depend on it:
 ```bash
 lsblk
-TERM=xterm systemctl status srv-offline.mount
+systemctl status srv-offline.mount
 sudo systemctl start srv-offline.mount
 ```
 
