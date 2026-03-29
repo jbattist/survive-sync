@@ -33,8 +33,9 @@ mkdir -p "${DEST_DIR}"
 
 # ── check NFS mount ───────────────────────────────────────────────────────────
 if ! mountpoint -q "${NFS_MOUNT}" 2>/dev/null; then
-    log "  ${NFS_MOUNT} not mounted — attempting to trigger automount..."
-    ls "${NFS_MOUNT}" &>/dev/null || true
+    log "  ${NFS_MOUNT} not mounted — triggering systemd mount unit..."
+    _unit=$(systemd-escape --path --suffix=mount "${NFS_MOUNT}")
+    sudo systemctl start "${_unit}" 2>/dev/null || true
     sleep 2
 fi
 

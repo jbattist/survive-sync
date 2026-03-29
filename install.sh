@@ -878,6 +878,9 @@ library ALL=(root) NOPASSWD: /usr/bin/systemctl restart mbtileserver.service
 # Allow stop/start for calibre-server (needed by sync-books.sh to avoid library lock conflict)
 library ALL=(root) NOPASSWD: /usr/bin/systemctl stop calibre-server.service
 library ALL=(root) NOPASSWD: /usr/bin/systemctl start calibre-server.service
+# Allow starting the NFS automount units for NAS shares
+library ALL=(root) NOPASSWD: /usr/bin/systemctl start mnt-truenas\x2dbooks.mount
+library ALL=(root) NOPASSWD: /usr/bin/systemctl start mnt-media\x2dclassics.mount
 SUDOERS
 chmod 0440 "${SUDOERS_FILE}"
 info "  Sudoers: ${SUDOERS_FILE}"
