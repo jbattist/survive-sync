@@ -218,17 +218,25 @@ print(len(items), d.get('total', 0))
             break
         fi
 
-        # Merge this page's items into the accumulator file
-        echo "${page_response}" | python3 - "${tmp_json}" <<'PYMERGE'
+        # Merge this page's items into the accumulator file.
+        # Write page to a temp file — pipe+heredoc stdin conflict means we
+        # cannot use "echo ... | python3 - arg <<'HEREDOC'" (heredoc wins).
+        local tmp_page
+        tmp_page=$(mktemp /tmp/survive-topo-page-XXXXXX.json)
+        printf '%s' "${page_response}" > "${tmp_page}"
+        python3 - "${tmp_json}" "${tmp_page}" <<'PYMERGE'
 import sys, json
-page = json.load(sys.stdin)
-acc_path = sys.argv[1]
+acc_path  = sys.argv[1]
+page_path = sys.argv[2]
+with open(page_path) as fh:
+    page = json.load(fh)
 with open(acc_path) as fh:
     acc = json.load(fh)
 acc.extend(page.get("items", []))
 with open(acc_path, "w") as fh:
     json.dump(acc, fh)
 PYMERGE
+        rm -f "${tmp_page}"
 
         log "  ${state_abbr}: fetched offset ${offset}, got ${page_count} items (total=${total})"
         offset=$(( offset + page_size ))
