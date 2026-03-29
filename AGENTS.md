@@ -35,8 +35,7 @@ None currently. See Previously Fixed table below for resolved items.
 
 ## Transient Issues (no action needed, re-test after next sync)
 
-- **archive.org 503** — March 23 run hit a service outage; caused ~114 PDF `wget failed` errors.
-  All those PDFs should download fine once archive.org recovers. Re-run sync to confirm.
+- **archive.org 503/403** — still ongoing as of March 29. All `milmanual-*` archive.org URLs are failing with wget exit 8 (HTTP error). Non-archive.org PDFs download fine. Re-run sync once archive.org recovers.
 - **maps/ME USGS timeout** — Maine timed out (rate limiting). CT worked fine. Re-test.
 
 ---
