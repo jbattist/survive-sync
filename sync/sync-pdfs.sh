@@ -88,11 +88,13 @@ while IFS=$'\t' read -r url local_filename category_dir priority description; do
     tmp_file="${TMP_DIR}/${local_filename}"
 
     # Download with wget; -q for quieter output, --show-progress for progress bar
+    # --tries=1: no retries — if the server is down/rate-limiting, fail fast and
+    #   move on; the next sync will pick it up.  Retrying here just burns time.
+    # --timeout=30: connection + read timeout per attempt
     if wget -q \
             --show-progress \
-            --timeout=60 \
-            --tries=3 \
-            --waitretry=10 \
+            --timeout=30 \
+            --tries=1 \
             --user-agent="survive-sync/1.0" \
             -O "${tmp_file}" \
             "${url}" 2>&1 | tee -a "${LOG_FILE}"; then
