@@ -29,28 +29,7 @@ See `SURVIVE.md` for full architecture, install, and operations reference.
 
 ## Known Permanent Config Failures (need fixing)
 
-These cause FAIL entries on every sync run. They are config bugs, not transient errors.
-
-### 1. `config/zim-list.conf` — wiktionary slug wrong
-- Current (broken): `wiktionary_en_all_maxi`
-- Fix: change to `wiktionary_en_all_nopic` (confirmed exists: `wiktionary_en_all_nopic_2026-02.zim`, 8.2GB)
-- Alternative: comment it out if 8.2GB is too large — Joe's call
-
-### 2. `config/pdf-sources.conf` line ~200 — ARRL emcomm-guide gated
-- URL: `https://www.arrl.org/files/file/Public%20Service/emcomm-guide.pdf`
-- Returns 9771 bytes of HTML (login-gated). No Wayback Machine archive. Permanently broken.
-- Fix: comment out with a note
-
-### 3. `config/pdf-sources.conf` line ~305 — IAEA radiological manual bad URL
-- URL: `https://www-pub.iaea.org/MTCD/Publications/PDF/EPR-FirstResponders_web.pdf`
-- Downloads ~67KB HTML publications portal page, not a PDF
-- Fix: comment out or find a working direct PDF URL before re-enabling
-
-### 4. `config/book-list.conf` line ~110 — princess-of-mars Gutenberg URLs failing
-- Both `gutenberg.org/ebooks/36102.epub.images` and `.epub` return errors
-- Was failing during the March 23 archive.org outage — may still be transient, re-test
-- Causes `survive-books.service` to exit 1 on every hourly run until fixed
-- Fix: comment out until confirmed working, or leave and accept the cosmetic exit-1
+None currently. See Previously Fixed table below for resolved items.
 
 ---
 
@@ -80,16 +59,7 @@ These cause FAIL entries on every sync run. They are config bugs, not transient 
 | `2892be6` | NFS book ingest from TrueNAS (install.sh + sync-books.sh) |
 | `64b3dcf` | `survive-books.service` + `survive-books.timer` (hourly NAS ingest) |
 | `0fcc8a2` | Fix bad systemd specifier in `survive-books.service` log path |
-
----
-
-## Immediate Next Steps
-
-1. Fix `config/zim-list.conf` — change wiktionary slug (or ask Joe about commenting it out)
-2. Fix `config/pdf-sources.conf` — comment out ARRL emcomm-guide with explanation
-3. Fix `config/pdf-sources.conf` — comment out or fix IAEA radiological URL
-4. Fix `config/book-list.conf` — comment out `princess-of-mars` until Gutenberg URL recovers
-5. Commit and push, then deploy: `git pull && sudo bash install.sh`
+| `v1.0.0` | wiktionary slug fixed, ARRL/IAEA PDFs commented out, princess-of-mars commented out |
 
 ---
 
