@@ -245,10 +245,15 @@ fi
 # pagefind — static full-text search index generator for the PDF portal
 if ! command -v pagefind &>/dev/null; then
     info "  Installing pagefind (static PDF search)..."
-    # Use pip3 if pip is not available (EndeavourOS ARM ships pip3, not pip)
+    # Ensure pip is available — install python-pip via pacman if needed
+    if ! command -v pip3 &>/dev/null && ! command -v pip &>/dev/null; then
+        info "  pip not found — installing python-pip via pacman..."
+        pacman -S --noconfirm --needed python-pip || \
+            warn "  python-pip install failed — cannot install pagefind"
+    fi
     _pip=$(command -v pip3 || command -v pip || true)
     if [[ -z "${_pip}" ]]; then
-        warn "  pip/pip3 not found — pagefind cannot be installed; run: pip3 install 'pagefind[extended]'"
+        warn "  pip/pip3 not found after install attempt — pagefind skipped; run: sudo pacman -S python-pip && pip3 install 'pagefind[extended]'"
     else
         "${_pip}" install --break-system-packages -q "pagefind[extended]" && \
             info "  pagefind: installed" || \
