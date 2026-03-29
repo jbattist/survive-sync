@@ -18,6 +18,7 @@
 | DNS name | `survive.travel` (Pi-hole static entry) |
 | Content user | `library` (system user, owns `/srv/offline`) |
 | NAS book share | `truenas.home:/mnt/hdd/books` → `/mnt/truenas-books` (ro, NFS automount) |
+| NAS classics share | `truenas.home:/mnt/hdd/media-classics` → `/mnt/media-classics` (ro, NFS automount) |
 
 ---
 
@@ -32,9 +33,12 @@ No raw service ports are exposed to clients.
 | Kiwix | 8080 | `/wiki/` | Wikipedia + ZIM files |
 | Calibre | 8081 | `/books/` | Ebook library |
 | mbtileserver | 8082 | `/maps/tiles/` | Map tile server |
+| Jellyfin | 8096 | `/movies/` | Classic movie server |
 | — | — | `/pdfs/` | PDF guides (static files) |
+| — | — | `/search/` | Full-text PDF search (Pagefind) |
 | — | — | `/video/` | Video files (static files) |
 | — | — | `/maps/download/` | .mbtiles downloads for OsmAnd/Locus |
+| — | — | `/maps/topo/` | USGS GeoPDF topo quads |
 
 ---
 
@@ -81,7 +85,7 @@ No raw service ports are exposed to clients.
 ├── maps/
 │   ├── tiles/          *.mbtiles files (US Northeast: CT ME MA NH RI VT NY)
 │   ├── pbf/            Geofabrik OSM PBF source files
-│   └── topo/           USGS topo PDFs
+│   └── topo/           USGS 1:24000 GeoPDF quads (by state slug, 50/run cap)
 ├── video/
 │   ├── first-aid/
 │   ├── repair/
@@ -89,7 +93,8 @@ No raw service ports are exposed to clients.
 │   ├── food/
 │   ├── morale/
 │   ├── agriculture/
-│   └── shelter/
+│   ├── shelter/
+│   └── classics/       rsynced from /mnt/media-classics (TrueNAS NFS)
 ├── metadata/           hash records used by sync-pdfs.sh (sha256sums-pdfs.txt)
 ├── scripts/            sync scripts and configs (copied from this repo)
 └── logs/               sync-YYYY-MM-DD.log (one per day)
@@ -125,16 +130,17 @@ sudo bash install.sh
 
 ### What install.sh Does
 
-1. Installs packages: `tilemaker` (built from source on aarch64), `mbtileserver` (via `go install`), `kiwix-tools`, `calibre`, `yt-dlp`, `caddy`, `nfs-utils`, `poppler` (pdftotext), `pagefind` (via pip)
+1. Installs packages: `tilemaker` (built from source on aarch64), `mbtileserver` (via `go install`), `kiwix-tools`, `calibre`, `yt-dlp`, `caddy`, `nfs-utils`, `poppler` (pdftotext), `pagefind` (via pip), `jellyfin` (AUR)
 2. Formats/mounts USB SSD at `/srv/offline` (ext4, label `survive-data`)
 2b. Configures NFS mount: adds `truenas.home:/mnt/hdd/books` → `/mnt/truenas-books` to `/etc/fstab` as a read-only automount; tests connectivity
+2c. Configures NFS mount: adds `truenas.home:/mnt/hdd/media-classics` → `/mnt/media-classics` to `/etc/fstab` as a read-only automount
 3. Creates full directory structure under `/srv/offline`
 4. Initializes empty Calibre library (`metadata.db`)
 5. Copies scripts, configs, and portal assets
 6. Downloads MapLibre GL JS and OpenMapTiles fonts (offline map viewer)
-7. Installs and restarts systemd units (including `survive-books.timer`)
+7. Installs and restarts systemd units (including `survive-books.timer`, enables `jellyfin`)
 8. Writes `/etc/caddy/Caddyfile` (always overwrites) and restarts Caddy
-9. Opens firewall ports (firewalld or nftables)
+9. Opens firewall ports (firewalld or nftables) — 80, 8080, 8081, 8082, 8096
 10. Sets ownership: `chown -R library:library /srv/offline`
 11. Configures `sudo` for `library` user service restarts
 12. Installs `/etc/profile.d/survive-welcome.sh` (login banner)
@@ -161,7 +167,7 @@ journalctl -u survive-books -f
 
 ```bash
 SYNC_MODULES='pdfs books' sudo systemctl start survive-sync.service
-# modules: zim pdfs books maps video
+# modules: zim pdfs books maps video classics
 ```
 
 ### Timers
@@ -277,13 +283,13 @@ silently and logs the count.
 ### Status at a Glance
 
 ```bash
-systemctl status caddy kiwix calibre-server mbtileserver --no-pager
+systemctl status caddy kiwix calibre-server mbtileserver jellyfin --no-pager
 ```
 
 ### Restart All Services
 
 ```bash
-sudo systemctl restart caddy kiwix calibre-server mbtileserver
+sudo systemctl restart caddy kiwix calibre-server mbtileserver jellyfin
 ```
 
 ### Restart Individual Service
@@ -293,6 +299,7 @@ sudo systemctl restart caddy
 sudo systemctl restart kiwix
 sudo systemctl restart calibre-server
 sudo systemctl restart mbtileserver
+sudo systemctl restart jellyfin
 ```
 
 ### View Logs
@@ -302,6 +309,7 @@ journalctl -u caddy -f
 journalctl -u kiwix -f
 journalctl -u calibre-server -f
 journalctl -u mbtileserver -f
+journalctl -u jellyfin -f
 ```
 
 ---
@@ -410,6 +418,22 @@ grep "filename-stem" /srv/offline/books/.calibre-ingested.txt
 If a book is in the archive but not in Calibre (e.g. archive was manually edited or
 `calibredb add` failed silently), remove its line from the archive and re-run the sync.
 
+### Classics not appearing at /movies/
+
+Jellyfin must be configured via its web UI on first run. After `install.sh`:
+1. Open `http://survive.travel:8096` (or `/movies/`) and complete the setup wizard
+2. Add a media library pointing to `/srv/offline/video/classics/`
+3. Jellyfin scans the directory and serves the films at `/movies/`
+
+Check the NFS classics mount is populated:
+```bash
+mountpoint /mnt/media-classics
+ls /mnt/media-classics
+# Then trigger a classics sync:
+SYNC_MODULES='classics' sudo systemctl start survive-sync.service
+journalctl -u survive-sync -f
+```
+
 ### Wikipedia — 502 Bad Gateway
 
 ```bash
@@ -502,6 +526,7 @@ sudo firewall-cmd --permanent --add-service=http
 sudo firewall-cmd --permanent --add-port=8080/tcp
 sudo firewall-cmd --permanent --add-port=8081/tcp
 sudo firewall-cmd --permanent --add-port=8082/tcp
+sudo firewall-cmd --permanent --add-port=8096/tcp
 sudo firewall-cmd --reload
 ```
 
@@ -529,6 +554,7 @@ The NFS fstab entry and book ingest archive are also restored by `install.sh`.
 | `kiwix.service` | Kiwix ZIM server, port 8080, depends on mount |
 | `calibre-server.service` | Calibre ebook server, port 8081, depends on mount |
 | `mbtileserver.service` | Map tile server, port 8082, depends on mount |
+| `jellyfin.service` | Jellyfin media server, port 8096 (AUR package unit) |
 | `caddy.service` | Reverse proxy and portal, port 80 |
 | `survive-sync.service` | Oneshot full sync job (runs `sync-all.sh`) |
 | `survive-sync.timer` | Weekly timer, Sunday 02:00, Persistent=true |
@@ -564,7 +590,8 @@ survive-sync/
 │   ├── sync-pdfs.sh
 │   ├── sync-books.sh           also run standalone by survive-books.service
 │   ├── sync-maps.sh
-│   └── sync-video.sh
+│   ├── sync-video.sh
+│   └── sync-classics.sh        rsync classics from TrueNAS NFS → /srv/offline/video/classics/
 ├── postprocess/
 │   ├── update-kiwix-library.sh
 │   ├── update-catalog.sh

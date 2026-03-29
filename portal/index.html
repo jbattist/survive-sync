@@ -40,10 +40,14 @@
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      grid-template-columns: repeat(3, 1fr);
       gap: 1.25rem;
       width: 100%;
       max-width: 900px;
+    }
+
+    @media (max-width: 700px) {
+      .grid { grid-template-columns: 1fr; }
     }
 
     .card {
@@ -117,16 +121,22 @@
       <span class="desc">Full English Wikipedia &mdash; medicine, science, history, skills</span>
     </a>
 
+    <a class="card" href="/video/">
+      <span class="icon">🎬</span>
+      <span class="title">Video</span>
+      <span class="desc">First aid, repair, power, food, and morale videos</span>
+    </a>
+
+    <a class="card" href="/movies/">
+      <span class="icon">🎞️</span>
+      <span class="title">Classic Movies</span>
+      <span class="desc">Public domain films via Jellyfin &mdash; morale and entertainment offline</span>
+    </a>
+
     <a class="card" href="/books/">
       <span class="icon">📚</span>
       <span class="title">Books</span>
       <span class="desc">Survival, first aid, repair, farming, and classic literature</span>
-    </a>
-
-    <a class="card" href="/maps/">
-      <span class="icon">🗺️</span>
-      <span class="title">Maps</span>
-      <span class="desc">Offline street and topo maps &mdash; US Northeast region</span>
     </a>
 
     <a class="card" href="/pdfs/">
@@ -141,22 +151,22 @@
       <span class="desc">Full-text search across all PDF guides and manuals</span>
     </a>
 
-    <a class="card" href="/video/">
-      <span class="icon">🎬</span>
-      <span class="title">Video</span>
-      <span class="desc">First aid, repair, power, food, and morale videos</span>
+    <a class="card" href="/maps/">
+      <span class="icon">🗺️</span>
+      <span class="title">Maps</span>
+      <span class="desc">Offline street and topo maps &mdash; US Northeast region</span>
+    </a>
+
+    <a class="card" href="/maps/topo/">
+      <span class="icon">🏔️</span>
+      <span class="title">Topo Maps</span>
+      <span class="desc">USGS 1:24000 GeoPDF topo quads &mdash; download for ATAK and offline use</span>
     </a>
 
     <a class="card" href="/maps/download/">
       <span class="icon">⬇️</span>
       <span class="title">Map Downloads</span>
       <span class="desc">Download .mbtiles files for OsmAnd and Locus Map offline use</span>
-    </a>
-
-    <a class="card" href="/maps/topo/">
-      <span class="icon">🏔️</span>
-      <span class="title">Topo Maps</span>
-      <span class="desc">USGS 1:24000 GeoPDF topo quads — download for ATAK and offline use</span>
     </a>
 
   </div>

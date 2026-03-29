@@ -12,14 +12,14 @@
 #   ssh pi@survive 'cd ~/survive-sync && sudo bash install.sh'
 #
 # What this script does:
-#   1.  Checks dependencies; installs tilemaker, mbtileserver, kiwix-tools, calibre, yt-dlp, poppler, pagefind if missing
+#   1.  Checks dependencies; installs tilemaker, mbtileserver, kiwix-tools, calibre, yt-dlp, poppler, pagefind, jellyfin if missing
 #   2.  Formats and mounts the USB data drive at /srv/offline (label: survive-data)
 #   2b. Configures NFS mount for TrueNAS book share (truenas.home:/mnt/hdd/books → /mnt/truenas-books)
 #   3.  Creates all required directories under /srv/offline
 #   4.  Copies scripts, configs, and portal assets to /srv/offline
 #   5.  Downloads MapLibre GL JS and OpenMapTiles fonts for offline map viewer
 #   6.  Downloads OpenMapTiles fonts for offline map labels
-#   7.  Installs systemd units for srv-offline.mount, mbtileserver, kiwix, calibre-server, survive-sync
+#   7.  Installs systemd units for srv-offline.mount, mbtileserver, kiwix, calibre-server, jellyfin, survive-sync
 #   8.  Patches /etc/caddy/Caddyfile to add map tile and download routes
 #   9.  Patches /etc/nftables.conf to allow port 8082 (mbtileserver)
 #   10. Sets ownership of /srv/offline
@@ -270,6 +270,14 @@ if ! command -v pagefind &>/dev/null; then
     fi
 else
     info "  pagefind: already installed ($(pagefind --version 2>/dev/null || echo unknown))"
+fi
+
+# jellyfin — media server for offline movie playback
+if ! command -v jellyfin &>/dev/null && ! pacman -Qi jellyfin &>/dev/null 2>&1; then
+    info "  Installing jellyfin..."
+    install_aur_pkg jellyfin
+else
+    info "  jellyfin: already installed"
 fi
 
 # ── step 2: set up USB data drive ─────────────────────────────────────────────
@@ -653,6 +661,15 @@ for svc in kiwix.service calibre-server.service mbtileserver.service; do
         warn "  ${svc}: restart failed (check: systemctl status ${svc})"
 done
 
+# Jellyfin — enable and start (AUR package ships its own unit)
+if pacman -Qi jellyfin &>/dev/null 2>&1; then
+    systemctl enable jellyfin 2>/dev/null || true
+    systemctl reset-failed jellyfin 2>/dev/null || true
+    systemctl restart jellyfin && \
+        info "  jellyfin.service: enabled and restarted" || \
+        warn "  jellyfin.service: restart failed (check: systemctl status jellyfin)"
+fi
+
 systemctl enable survive-sync.timer && \
     info "  survive-sync.timer: enabled" || \
     warn "  survive-sync.timer: enable failed"
@@ -728,6 +745,11 @@ cat > "${CADDY_CONF}" <<'CADDYFILE'
         file_server browse
     }
 
+    # Jellyfin media server — classic movies
+    handle /movies* {
+        reverse_proxy 127.0.0.1:8096
+    }
+
     # Portal — static files
     root * /srv/offline/portal
     file_server
@@ -747,16 +769,16 @@ systemctl restart caddy && \
     warn "  caddy restart failed — check: systemctl status caddy"
 
 # ── step 9: open firewall ports for survive services ─────────────────────────
-info "Step 9: Opening firewall ports (80, 8080, 8081, 8082)"
+info "Step 9: Opening firewall ports (80, 8080, 8081, 8082, 8096)"
 
-SURVIVE_PORTS=(80 8080 8081 8082)
+SURVIVE_PORTS=(80 8080 8081 8082 8096)
 
 if systemctl is-active --quiet firewalld 2>/dev/null; then
     # firewalld is running — use firewall-cmd (editing nftables.conf directly
     # is ineffective because firewalld owns the nftables ruleset)
     info "  firewalld detected — using firewall-cmd"
     firewall-cmd --permanent --add-service=http 2>/dev/null || true
-    for port in 8080 8081 8082; do
+    for port in 8080 8081 8082 8096; do
         firewall-cmd --permanent --add-port="${port}/tcp" 2>/dev/null || true
     done
     firewall-cmd --reload 2>/dev/null && \

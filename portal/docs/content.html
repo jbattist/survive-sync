@@ -241,7 +241,7 @@ journalctl -u survive-sync -f          # follow log; Ctrl+C to detach</code></pr
   <h3>Specific modules only</h3>
 <pre><code>SYNC_MODULES='pdfs' sudo systemctl start survive-sync.service
 SYNC_MODULES='pdfs books' sudo systemctl start survive-sync.service
-# module names: zim  pdfs  books  maps  video</code></pre>
+# module names: zim  pdfs  books  maps  video  classics</code></pre>
 
   <h3>Check last sync result</h3>
 <pre><code>journalctl -u survive-sync -n 100 --no-pager
@@ -341,7 +341,9 @@ video	https://archive.org/download/BigBuckBunny_328/BigBuckBunny_512kb.mp4	moral
 channel	https://www.youtube.com/@StoptheBleed	first-aid	bleeding	Stop the Bleed channel</code></pre>
 
   <h3>Categories</h3>
-  <p>Use any of: <span class="ic">first-aid</span> &nbsp; <span class="ic">repair</span> &nbsp; <span class="ic">power</span> &nbsp; <span class="ic">food</span> &nbsp; <span class="ic">morale</span> — or add a new category name; the directory will be created automatically.</p>
+  <p>Use any of: <span class="ic">first-aid</span> &nbsp; <span class="ic">repair</span> &nbsp; <span class="ic">power</span> &nbsp; <span class="ic">food</span> &nbsp; <span class="ic">morale</span> &nbsp; <span class="ic">agriculture</span> &nbsp; <span class="ic">shelter</span> — or add a new category name; the directory will be created automatically.</p>
+
+  <div class="note"><strong>Classics videos</strong> are managed separately &mdash; they come from the TrueNAS NFS share, not <span class="ic">video-list.conf</span>. See the <a href="#classics">Classic Movies</a> section below.</div>
 
   <h3>To re-download a video</h3>
   <p>yt-dlp records every downloaded video ID in <span class="ic">/srv/offline/video/.yt-dlp-archive.txt</span>. To re-fetch a specific video, remove its line from that file:</p>

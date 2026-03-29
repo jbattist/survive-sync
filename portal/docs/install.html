@@ -200,6 +200,8 @@
     <tr><td>Travel IP</td><td>192.168.8.2 (static DHCP on Beryl)</td></tr>
     <tr><td>DNS name</td><td><span class="inline-code">survive.travel</span> (Pi-hole static entry)</td></tr>
     <tr><td>Content user</td><td><span class="inline-code">library</span> (system user, owns <span class="inline-code">/srv/offline</span>)</td></tr>
+    <tr><td>NAS book share</td><td><span class="inline-code">truenas.home:/mnt/hdd/books</span> &rarr; <span class="inline-code">/mnt/truenas-books</span> (ro, NFS automount)</td></tr>
+    <tr><td>NAS classics share</td><td><span class="inline-code">truenas.home:/mnt/hdd/media-classics</span> &rarr; <span class="inline-code">/mnt/media-classics</span> (ro, NFS automount)</td></tr>
   </table>
 
   <!-- ARCHITECTURE -->
@@ -214,9 +216,12 @@
     <tr><td>Kiwix</td><td>8080</td><td><span class="inline-code">/wiki/</span></td><td>Wikipedia + ZIM files</td></tr>
     <tr><td>Calibre</td><td>8081</td><td><span class="inline-code">/books/</span></td><td>Ebook library</td></tr>
     <tr><td>mbtileserver</td><td>8082</td><td><span class="inline-code">/maps/tiles/</span></td><td>Map tile server</td></tr>
+    <tr><td>Jellyfin</td><td>8096</td><td><span class="inline-code">/movies/</span></td><td>Classic movie server</td></tr>
     <tr><td>&mdash;</td><td>&mdash;</td><td><span class="inline-code">/pdfs/</span></td><td>PDF guides (static files)</td></tr>
+    <tr><td>&mdash;</td><td>&mdash;</td><td><span class="inline-code">/search/</span></td><td>Full-text PDF search (Pagefind)</td></tr>
     <tr><td>&mdash;</td><td>&mdash;</td><td><span class="inline-code">/video/</span></td><td>Video files (static files)</td></tr>
     <tr><td>&mdash;</td><td>&mdash;</td><td><span class="inline-code">/maps/download/</span></td><td>.mbtiles downloads for OsmAnd/Locus</td></tr>
+    <tr><td>&mdash;</td><td>&mdash;</td><td><span class="inline-code">/maps/topo/</span></td><td>USGS GeoPDF topo quads</td></tr>
   </table>
 
   <!-- CONTENT LAYOUT -->
@@ -226,6 +231,7 @@
 ├── portal/             web portal static files (served by Caddy)
 │   ├── index.html
 │   ├── docs/
+│   ├── search/index.html   Pagefind full-text search UI
 │   └── maps/           MapLibre GL JS viewer
 ├── kiwix/
 │   ├── library.xml     rebuilt by update-kiwix-library.sh after each sync
@@ -260,7 +266,7 @@
 ├── maps/
 │   ├── tiles/          *.mbtiles files (US Northeast: CT ME MA NH RI VT NY)
 │   ├── pbf/            Geofabrik OSM PBF source files
-│   └── topo/
+│   └── topo/           USGS 1:24000 GeoPDF quads (50/run cap, resumable)
 ├── video/
 │   ├── first-aid/
 │   ├── repair/
@@ -268,7 +274,8 @@
 │   ├── food/
 │   ├── morale/
 │   ├── agriculture/
-│   └── shelter/
+│   ├── shelter/
+│   └── classics/       rsynced from /mnt/media-classics (TrueNAS NFS)
 ├── scripts/            sync scripts and configs
 └── logs/</div>
 
@@ -297,15 +304,17 @@ sudo bash install.sh</code></pre>
 
   <h3>What install.sh Does</h3>
   <ol>
-    <li>Installs packages: <span class="inline-code">tilemaker</span> (built from source on aarch64), <span class="inline-code">mbtileserver</span> (via <span class="inline-code">go install</span>), <span class="inline-code">kiwix-tools</span>, <span class="inline-code">calibre</span>, <span class="inline-code">yt-dlp</span>, <span class="inline-code">caddy</span></li>
+    <li>Installs packages: <span class="inline-code">tilemaker</span> (built from source on aarch64), <span class="inline-code">mbtileserver</span> (via <span class="inline-code">go install</span>), <span class="inline-code">kiwix-tools</span>, <span class="inline-code">calibre</span>, <span class="inline-code">yt-dlp</span>, <span class="inline-code">caddy</span>, <span class="inline-code">nfs-utils</span>, <span class="inline-code">poppler</span> (pdftotext), <span class="inline-code">pagefind</span>, <span class="inline-code">jellyfin</span> (AUR)</li>
     <li>Formats/mounts USB SSD at <span class="inline-code">/srv/offline</span> (ext4, label <span class="inline-code">survive-data</span>)</li>
+    <li>2b: Configures NFS mount &mdash; <span class="inline-code">truenas.home:/mnt/hdd/books</span> &rarr; <span class="inline-code">/mnt/truenas-books</span> (read-only automount)</li>
+    <li>2c: Configures NFS mount &mdash; <span class="inline-code">truenas.home:/mnt/hdd/media-classics</span> &rarr; <span class="inline-code">/mnt/media-classics</span> (read-only automount)</li>
     <li>Creates full directory structure under <span class="inline-code">/srv/offline</span></li>
     <li>Initializes empty Calibre library (<span class="inline-code">metadata.db</span>)</li>
     <li>Copies scripts, configs, and portal assets</li>
     <li>Downloads MapLibre GL JS and OpenMapTiles fonts (offline map viewer)</li>
-    <li>Installs and restarts systemd units</li>
+    <li>Installs and restarts systemd units; enables <span class="inline-code">jellyfin</span>, <span class="inline-code">survive-books.timer</span></li>
     <li>Writes <span class="inline-code">/etc/caddy/Caddyfile</span> (always overwrites) and restarts Caddy</li>
-    <li>Opens firewall ports (firewalld: adds ports to public + internal zones)</li>
+    <li>Opens firewall ports 80, 8080, 8081, 8082, 8096 (firewalld or nftables)</li>
     <li>Sets ownership: <span class="inline-code">chown -R library:library /srv/offline</span></li>
     <li>Configures <span class="inline-code">sudo</span> for <span class="inline-code">library</span> user service restarts</li>
     <li>Installs <span class="inline-code">/etc/profile.d/survive-welcome.sh</span> (login banner)</li>
@@ -318,38 +327,52 @@ sudo bash install.sh</code></pre>
 <pre><code>sudo systemctl start survive-sync.service
 journalctl -u survive-sync -f          # Ctrl+C to detach, sync keeps running</code></pre>
 
+  <h3>Run Books Only (NAS ingest + Gutenberg)</h3>
+<pre><code>sudo systemctl start survive-books.service
+journalctl -u survive-books -f</code></pre>
+
   <h3>Run Specific Modules Only</h3>
 <pre><code>SYNC_MODULES='pdfs books' sudo systemctl start survive-sync.service
-# modules: zim pdfs books maps video</code></pre>
+# module names: zim  pdfs  books  maps  video  classics</code></pre>
 
-  <h3>Timer</h3>
-  <p>Runs automatically every Sunday at 02:00. <span class="inline-code">Persistent=true</span> &mdash; if the Pi was off, it catches up on next boot.</p>
-<pre><code>systemctl list-timers survive-sync.timer</code></pre>
+  <h3>Timers</h3>
+
+  <table>
+    <tr><th>Timer</th><th>Schedule</th><th>Purpose</th></tr>
+    <tr><td><span class="inline-code">survive-sync.timer</span></td><td>Weekly, Sunday 02:00</td><td>Full sync (ZIM, PDFs, books, maps, video, classics)</td></tr>
+    <tr><td><span class="inline-code">survive-books.timer</span></td><td>Every 30 min</td><td>Books only &mdash; picks up new EPUBs from NAS</td></tr>
+  </table>
+
+  <p>Both timers use <span class="inline-code">Persistent=true</span> &mdash; if the Pi was off at trigger time, they run on next boot.</p>
+<pre><code>systemctl list-timers survive-sync.timer survive-books.timer</code></pre>
 
   <h3>Check Sync Status</h3>
 <pre><code>journalctl -u survive-sync -n 100 --no-pager
-systemctl status survive-sync</code></pre>
+journalctl -u survive-books -n 100 --no-pager
+systemctl status survive-sync survive-books</code></pre>
 
   <!-- SERVICE MANAGEMENT -->
   <h2>Service Management</h2>
 
   <h3>Status at a Glance</h3>
-<pre><code>systemctl status caddy kiwix calibre-server mbtileserver --no-pager</code></pre>
+<pre><code>systemctl status caddy kiwix calibre-server mbtileserver jellyfin --no-pager</code></pre>
 
   <h3>Restart All Services</h3>
-<pre><code>sudo systemctl restart caddy kiwix calibre-server mbtileserver</code></pre>
+<pre><code>sudo systemctl restart caddy kiwix calibre-server mbtileserver jellyfin</code></pre>
 
   <h3>Restart Individual Service</h3>
 <pre><code>sudo systemctl restart caddy
 sudo systemctl restart kiwix
 sudo systemctl restart calibre-server
-sudo systemctl restart mbtileserver</code></pre>
+sudo systemctl restart mbtileserver
+sudo systemctl restart jellyfin</code></pre>
 
   <h3>View Logs</h3>
 <pre><code>journalctl -u caddy -f
 journalctl -u kiwix -f
 journalctl -u calibre-server -f
-journalctl -u mbtileserver -f</code></pre>
+journalctl -u mbtileserver -f
+journalctl -u jellyfin -f</code></pre>
 
   <!-- TROUBLESHOOTING -->
   <h2>Troubleshooting</h2>
@@ -438,7 +461,20 @@ sudo firewall-cmd --zone=internal --list-all</code></pre>
 sudo firewall-cmd --permanent --add-port=8080/tcp
 sudo firewall-cmd --permanent --add-port=8081/tcp
 sudo firewall-cmd --permanent --add-port=8082/tcp
+sudo firewall-cmd --permanent --add-port=8096/tcp
 sudo firewall-cmd --reload</code></pre>
+
+  <h3>Classics not appearing at /movies/</h3>
+  <p>Jellyfin requires a one-time setup via its web UI after first install:</p>
+  <ol>
+    <li>Open <span class="inline-code">http://survive.travel:8096</span> and complete the setup wizard</li>
+    <li>Add a media library pointing to <span class="inline-code">/srv/offline/video/classics/</span></li>
+    <li>Jellyfin scans and serves the films at <span class="inline-code">/movies/</span></li>
+  </ol>
+  <p>Verify the NFS mount and classics sync:</p>
+<pre><code>mountpoint /mnt/media-classics &amp;&amp; ls /mnt/media-classics
+SYNC_MODULES='classics' sudo systemctl start survive-sync.service
+journalctl -u survive-sync -f</code></pre>
 
   <!-- REBUILD FROM SCRATCH -->
   <h2>Rebuild From Scratch</h2>
@@ -461,9 +497,12 @@ sudo firewall-cmd --reload</code></pre>
     <tr><td><span class="inline-code">kiwix.service</span></td><td>Kiwix ZIM server, port 8080, depends on mount</td></tr>
     <tr><td><span class="inline-code">calibre-server.service</span></td><td>Calibre ebook server, port 8081, depends on mount</td></tr>
     <tr><td><span class="inline-code">mbtileserver.service</span></td><td>Map tile server, port 8082, depends on mount</td></tr>
+    <tr><td><span class="inline-code">jellyfin.service</span></td><td>Jellyfin media server, port 8096 (AUR package unit)</td></tr>
     <tr><td><span class="inline-code">caddy.service</span></td><td>Reverse proxy and portal, port 80</td></tr>
-    <tr><td><span class="inline-code">survive-sync.service</span></td><td>Oneshot sync job (runs <span class="inline-code">sync-all.sh</span>)</td></tr>
+    <tr><td><span class="inline-code">survive-sync.service</span></td><td>Oneshot full sync job (runs <span class="inline-code">sync-all.sh</span>)</td></tr>
     <tr><td><span class="inline-code">survive-sync.timer</span></td><td>Weekly timer, Sunday 02:00, Persistent=true</td></tr>
+    <tr><td><span class="inline-code">survive-books.service</span></td><td>Oneshot books-only sync (runs <span class="inline-code">sync-books.sh</span>)</td></tr>
+    <tr><td><span class="inline-code">survive-books.timer</span></td><td>Every 30 min, Persistent=true &mdash; NAS book ingest</td></tr>
   </table>
 
   <p>All unit files live in <span class="inline-code">/etc/systemd/system/</span> and are sourced from this repo at <span class="inline-code">systemd/</span>.</p>
@@ -474,10 +513,12 @@ sudo firewall-cmd --reload</code></pre>
 <div class="dir-tree">survive-sync/
 ├── install.sh                  deploy script — run with: sudo bash install.sh
 ├── SURVIVE.md                  install/ops/troubleshoot guide
+├── AGENTS.md                   OpenCode session context (project rules + known issues)
 ├── NETWORK.md                  network/VPN setup guide
 ├── portal/                     web portal (copied to /srv/offline/portal/)
 │   ├── index.html
 │   ├── docs/
+│   ├── search/index.html       Pagefind full-text search UI
 │   └── maps/index.html
 ├── config/                     sync source lists
 │   ├── zim-list.conf
@@ -489,9 +530,10 @@ sudo firewall-cmd --reload</code></pre>
 │   ├── sync-all.sh
 │   ├── sync-zim.sh
 │   ├── sync-pdfs.sh
-│   ├── sync-books.sh
+│   ├── sync-books.sh           also run standalone by survive-books.service
 │   ├── sync-maps.sh
-│   └── sync-video.sh
+│   ├── sync-video.sh
+│   └── sync-classics.sh        rsync classics from TrueNAS NFS
 ├── postprocess/
 │   ├── update-kiwix-library.sh
 │   ├── update-catalog.sh
