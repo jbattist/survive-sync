@@ -125,7 +125,7 @@ sudo bash install.sh
 
 ### What install.sh Does
 
-1. Installs packages: `tilemaker` (built from source on aarch64), `mbtileserver` (via `go install`), `kiwix-tools`, `calibre`, `yt-dlp`, `caddy`, `nfs-utils`
+1. Installs packages: `tilemaker` (built from source on aarch64), `mbtileserver` (via `go install`), `kiwix-tools`, `calibre`, `yt-dlp`, `caddy`, `nfs-utils`, `poppler` (pdftotext), `pagefind` (via pip)
 2. Formats/mounts USB SSD at `/srv/offline` (ext4, label `survive-data`)
 2b. Configures NFS mount: adds `truenas.home:/mnt/hdd/books` → `/mnt/truenas-books` to `/etc/fstab` as a read-only automount; tests connectivity
 3. Creates full directory structure under `/srv/offline`
@@ -169,7 +169,7 @@ SYNC_MODULES='pdfs books' sudo systemctl start survive-sync.service
 | Timer | Schedule | Purpose |
 |---|---|---|
 | `survive-sync.timer` | Weekly, Sunday 02:00 | Full sync (ZIM, PDFs, books, maps, video) |
-| `survive-books.timer` | Hourly | Books only — picks up new EPUBs from NAS within an hour |
+| `survive-books.timer` | Every 30 min | Books only — picks up new EPUBs from NAS within 30 minutes |
 
 Both timers use `Persistent=true` — if the Pi was off at trigger time, they run on next boot.
 
@@ -217,12 +217,12 @@ to `/srv/offline/books/epub/` and added to the Calibre library by `sync-books.sh
 - `sync-books.sh` scans the mount after the Gutenberg/Standard Ebooks phase
 - Any `.epub` found is validated (>5KB, valid ZIP header), copied locally, and ingested via `calibredb add`
 - Deduplication uses `/srv/offline/books/.calibre-ingested.txt` (slug = filename stem) — books already in the library are skipped instantly
-- `survive-books.timer` runs the process hourly so new books appear in Calibre within an hour
+- `survive-books.timer` runs the process every 30 minutes so new books appear in Calibre within 30 minutes
 
 ### Adding books to the NAS
 
 Drop any `.epub` file into `truenas.home:/mnt/hdd/books` (or any subdirectory).
-It will appear in the Calibre library within one hour. To ingest immediately:
+It will appear in the Calibre library within 30 minutes. To ingest immediately:
 
 ```bash
 sudo systemctl start survive-books.service
@@ -236,6 +236,39 @@ mountpoint /mnt/truenas-books && ls /mnt/truenas-books
 # If not mounted:
 sudo mount /mnt/truenas-books
 ```
+
+---
+
+## PDF Search
+
+Full-text search across all PDFs is provided by [Pagefind](https://pagefind.app), a static
+WASM-based search engine. No additional services are required — the index is pre-built
+on each sync run and served as static files by Caddy.
+
+### How it works
+
+1. After each sync, `postprocess/rebuild-indexes.sh` runs:
+   - `pdftotext` (poppler) extracts plain text from each PDF into HTML stubs at
+     `/srv/offline/portal/search-index/<category>/`
+   - `pagefind --site /srv/offline/portal` indexes the stubs and writes the search
+     index to `/srv/offline/portal/pagefind/`
+   - A human-readable PDF listing page is generated at `/srv/offline/portal/pdfs/index.html`
+     (replaces Caddy's raw directory listing with titles and priority badges)
+2. The search UI at `/search/` loads the pre-built Pagefind WASM and index at page load
+
+### Access
+
+- **Search:** `http://survive.travel/search/`
+- **Browse PDFs by category:** `http://survive.travel/pdfs/`
+
+### Dependencies
+
+Both are installed by `install.sh` step 1:
+- `poppler` — provides `pdftotext`
+- `pagefind` — installed via `pip install 'pagefind[extended]'`
+
+Image-only PDFs (no selectable text) will not be indexed. The script skips them
+silently and logs the count.
 
 ---
 
@@ -500,7 +533,7 @@ The NFS fstab entry and book ingest archive are also restored by `install.sh`.
 | `survive-sync.service` | Oneshot full sync job (runs `sync-all.sh`) |
 | `survive-sync.timer` | Weekly timer, Sunday 02:00, Persistent=true |
 | `survive-books.service` | Oneshot books-only sync (runs `sync-books.sh`) |
-| `survive-books.timer` | Hourly timer, Persistent=true — NAS book ingest |
+| `survive-books.timer` | Every 30 min timer, Persistent=true — NAS book ingest |
 
 All unit files live in `/etc/systemd/system/` and are sourced from this repo at `systemd/`.
 
@@ -517,6 +550,7 @@ survive-sync/
 ├── portal/                     web portal (copied to /srv/offline/portal/)
 │   ├── index.html
 │   ├── docs/
+│   ├── search/index.html       Pagefind full-text search UI
 │   └── maps/index.html
 ├── config/                     sync source lists
 │   ├── zim-list.conf

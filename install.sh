@@ -12,7 +12,7 @@
 #   ssh pi@survive 'cd ~/survive-sync && sudo bash install.sh'
 #
 # What this script does:
-#   1.  Checks dependencies; installs tilemaker, mbtileserver, kiwix-tools, calibre, yt-dlp if missing
+#   1.  Checks dependencies; installs tilemaker, mbtileserver, kiwix-tools, calibre, yt-dlp, poppler, pagefind if missing
 #   2.  Formats and mounts the USB data drive at /srv/offline (label: survive-data)
 #   2b. Configures NFS mount for TrueNAS book share (truenas.home:/mnt/hdd/books → /mnt/truenas-books)
 #   3.  Creates all required directories under /srv/offline
@@ -231,6 +231,25 @@ if ! command -v caddy &>/dev/null; then
         warn "  caddy not found after install attempt"
 else
     info "  caddy: already installed ($(caddy version 2>/dev/null | head -1 || echo unknown))"
+fi
+
+# poppler — provides pdftotext, used by the PDF search indexer
+if ! command -v pdftotext &>/dev/null; then
+    info "  Installing poppler (pdftotext for PDF search)..."
+    pacman -S --noconfirm --needed poppler || \
+        warn "  poppler install failed — PDF search indexing will be skipped"
+else
+    info "  pdftotext (poppler): already installed"
+fi
+
+# pagefind — static full-text search index generator for the PDF portal
+if ! command -v pagefind &>/dev/null; then
+    info "  Installing pagefind (static PDF search)..."
+    pip install --break-system-packages -q "pagefind[extended]" && \
+        info "  pagefind: installed" || \
+        warn "  pagefind install failed — PDF search portal will not be built; run: pip install 'pagefind[extended]'"
+else
+    info "  pagefind: already installed ($(pagefind --version 2>/dev/null || echo unknown))"
 fi
 
 # ── step 2: set up USB data drive ─────────────────────────────────────────────

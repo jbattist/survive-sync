@@ -18,7 +18,7 @@ See `SURVIVE.md` for full architecture, install, and operations reference.
 - **TrueNAS NFS book share:** `truenas.home:/mnt/hdd/books` → mounted at `/mnt/truenas-books` (ro, automount)
   - `install.sh` adds the fstab entry and installs `nfs-utils`
   - `sync-books.sh` scans the mount after the Gutenberg/StandardEbooks phase and ingests any `.epub` found
-  - `survive-books.timer` runs `sync-books.sh` hourly so NAS books appear in Calibre within an hour
+  - `survive-books.timer` runs `sync-books.sh` every 30 min so NAS books appear in Calibre quickly
 
 ## Workflow
 
@@ -60,6 +60,7 @@ None currently. See Previously Fixed table below for resolved items.
 | `64b3dcf` | `survive-books.service` + `survive-books.timer` (hourly NAS ingest) |
 | `0fcc8a2` | Fix bad systemd specifier in `survive-books.service` log path |
 | `v1.0.0` | wiktionary slug fixed, ARRL/IAEA PDFs commented out, princess-of-mars commented out |
+| v2 | `survive-books.timer` changed to 30 min; PDF search (poppler+pagefind) added to install.sh + rebuild-indexes.sh; `portal/search/index.html` + `portal/pdfs/index.html` generated on each sync |
 
 ---
 

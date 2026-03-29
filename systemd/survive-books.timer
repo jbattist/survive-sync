@@ -1,10 +1,10 @@
 [Unit]
-Description=Hourly Survive Books Sync Timer
+Description=30-Minute Survive Books Sync Timer
 Documentation=file:///srv/offline/scripts/sync/sync-books.sh
 
 [Timer]
-# Run at the top of every hour
-OnCalendar=hourly
+# Run every 30 minutes
+OnCalendar=*:0/30
 
 # If the Pi was offline at trigger time, run on next boot
 Persistent=true

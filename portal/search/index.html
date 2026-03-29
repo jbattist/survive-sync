@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Search Docs — SURVIVE</title>
+  <link href="/pagefind/pagefind-ui.css" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      color: #ff4444;
+      text-transform: uppercase;
+    }
+
+    header p {
+      margin-top: 0.4rem;
+      color: #888;
+      font-size: 0.9rem;
+    }
+
+    nav {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    nav a {
+      color: #aaa;
+      text-decoration: none;
+      margin: 0 0.75rem;
+      font-size: 0.9rem;
+    }
+
+    nav a:hover { color: #fff; }
+
+    #search-wrapper {
+      width: 100%;
+      max-width: 800px;
+    }
+
+    /* Pagefind UI dark-mode overrides */
+    .pagefind-ui__search-input {
+      background: #242424 !important;
+      color: #e0e0e0 !important;
+      border: 1px solid #444 !important;
+      border-radius: 8px !important;
+    }
+
+    .pagefind-ui__search-input:focus {
+      border-color: #ff4444 !important;
+      outline: none !important;
+    }
+
+    .pagefind-ui__result {
+      background: #242424 !important;
+      border: 1px solid #333 !important;
+      border-radius: 8px !important;
+      padding: 1rem !important;
+      margin-bottom: 0.75rem !important;
+    }
+
+    .pagefind-ui__result-title a {
+      color: #cce !important;
+    }
+
+    .pagefind-ui__result-title a:hover {
+      color: #fff !important;
+    }
+
+    .pagefind-ui__result-excerpt {
+      color: #999 !important;
+    }
+
+    .pagefind-ui__button {
+      background: #ff4444 !important;
+      color: #fff !important;
+      border: none !important;
+      border-radius: 6px !important;
+    }
+
+    .pagefind-ui__message {
+      color: #888 !important;
+    }
+
+    footer {
+      margin-top: 3rem;
+      color: #444;
+      font-size: 0.8rem;
+      text-align: center;
+    }
+
+    footer a { color: #666; text-decoration: none; }
+    footer a:hover { color: #aaa; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Search Docs</h1>
+    <p>Full-text search across all PDF guides and manuals</p>
+  </header>
+
+  <nav>
+    <a href="/">&#8592; Home</a>
+    <a href="/pdfs/">Browse by Category</a>
+  </nav>
+
+  <div id="search-wrapper">
+    <div id="search"></div>
+  </div>
+
+  <footer>
+    <p><a href="/">SURVIVE</a> &mdash; Offline Emergency Library</p>
+  </footer>
+
+  <script src="/pagefind/pagefind-ui.js"></script>
+  <script>
+    new PagefindUI({
+      element: "#search",
+      showSubResults: true,
+      showImages: false,
+      resetStyles: false,
+    });
+  </script>
+
+</body>
+</html>
