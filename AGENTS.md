@@ -58,7 +58,9 @@ None currently. See Previously Fixed table below for resolved items.
 | `0fcc8a2` | Fix bad systemd specifier in `survive-books.service` log path |
 | `v1.0.0` | wiktionary slug fixed, ARRL/IAEA PDFs commented out, princess-of-mars commented out |
 | v2 | `survive-books.timer` changed to 30 min; PDF search (poppler+pagefind) added to install.sh + rebuild-indexes.sh; `portal/search/index.html` + `portal/pdfs/index.html` generated on each sync |
-| `936df26` | USGS topo state filtering — switched from `&q=` (free-text, caused cross-state bleed) to `&state=Full State Name`; confirmed working, only downloads quads for configured states (NE + NY) |
+| `936df26` | USGS topo state filtering — switched from `&q=` to `&state=`; both broken server-side |
+| `9b0b126` | Client-side filename prefix filter — TNM `&state=` returns random 500 items from all states |
+| latest | Switch to `&bbox=` + `&offset=` pagination in `map-regions.conf` + `sync-maps.sh`; bbox is spatially accurate; filename prefix filter retained for cross-border quads |
 
 ---
 

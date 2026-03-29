@@ -176,82 +176,77 @@ process_geofabrik() {
 
 # ── process usgs_topo entries ─────────────────────────────────────────────────
 process_usgs_topo() {
-    local state_abbr="$1" state_slug="$2"
+    # identifier format: STATE_ABBR:west,south,east,north  (e.g. CT:-73.7,41.2,-71.7,42.9)
+    local identifier="$1" state_slug="$2"
+    local state_abbr="${identifier%%:*}"
+    local bbox="${identifier##*:}"
     local dest_dir="${TOPO_DIR}/${state_slug}"
     mkdir -p "${dest_dir}"
 
-    log "Checking USGS topo quads for ${state_abbr}"
+    log "Checking USGS topo quads for ${state_abbr} (bbox ${bbox})"
 
-    # Map abbreviation → full state name for the TNM API &state= parameter.
-    # The TNM API &state= filter is authoritative; &q= is free-text and matches
-    # quads from neighboring states that mention the abbreviation in their metadata.
-    declare -A STATE_NAMES=(
-        [CT]="Connecticut" [ME]="Maine" [MA]="Massachusetts"
-        [NH]="New Hampshire" [RI]="Rhode Island" [VT]="Vermont"
-        [NY]="New York" [NJ]="New Jersey" [PA]="Pennsylvania"
-        [VA]="Virginia" [WV]="West Virginia" [MD]="Maryland"
-        [DE]="Delaware" [NC]="North Carolina" [SC]="South Carolina"
-        [GA]="Georgia" [FL]="Florida" [AL]="Alabama" [MS]="Mississippi"
-        [TN]="Tennessee" [KY]="Kentucky" [OH]="Ohio" [IN]="Indiana"
-        [IL]="Illinois" [MI]="Michigan" [WI]="Wisconsin" [MN]="Minnesota"
-        [IA]="Iowa" [MO]="Missouri" [AR]="Arkansas" [LA]="Louisiana"
-        [TX]="Texas" [OK]="Oklahoma" [KS]="Kansas" [NE]="Nebraska"
-        [SD]="South Dakota" [ND]="North Dakota" [MT]="Montana"
-        [WY]="Wyoming" [CO]="Colorado" [NM]="New Mexico" [AZ]="Arizona"
-        [UT]="Utah" [NV]="Nevada" [ID]="Idaho" [OR]="Oregon"
-        [WA]="Washington" [CA]="California" [AK]="Alaska" [HI]="Hawaii"
-    )
-    local state_name="${STATE_NAMES[${state_abbr}]:-}"
-    if [[ -z "${state_name}" ]]; then
-        fail "${state_abbr}: unknown state abbreviation — add it to STATE_NAMES in sync-maps.sh"
-        return 1
-    fi
+    # Paginate through all results using &bbox= (reliable spatial filter) + &offset=.
+    # The TNM API &state= parameter is broken — it returns quads from all 50 states.
+    # &bbox= correctly limits results to quads intersecting the bounding box.
+    # max=500 per page; loop until we have all pages.
+    local offset=0 page_size=500
+    local tmp_json
+    tmp_json=$(mktemp /tmp/survive-topo-XXXXXX.json)
+    # Accumulate all items into one JSON array file: ["item",...] 
+    printf '[]' > "${tmp_json}"
 
-    # Query TNM API for US Topo GeoPDFs. The &state= parameter is broken
-    # server-side and returns quads from all 50 states — Python filters
-    # client-side by filename prefix after the response is received.
-    # NOTE: prodFormats must be "GeoPDF" — the API returns 0 results for "PDF".
-    # max=500 fetches multiple editions per quad; Python below deduplicates,
-    # keeping only the most recently published edition of each quad name.
-    local state_encoded
-    state_encoded=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "${state_name}")
-    local topo_url="${USGS_TNM_API}?datasets=US%20Topo"
-    topo_url+="&prodFormats=GeoPDF&state=${state_encoded}&max=500&outputFormat=json"
+    while true; do
+        local topo_url="${USGS_TNM_API}?datasets=US%20Topo"
+        topo_url+="&prodFormats=GeoPDF&bbox=${bbox}&max=${page_size}&offset=${offset}&outputFormat=json"
 
-    local response
-    response=$(curl -sf --max-time 60 "${topo_url}" 2>/dev/null) || {
-        fail "${state_abbr}: USGS API unreachable"
-        return 1
-    }
+        local page_response
+        page_response=$(curl -sf --max-time 60 "${topo_url}" 2>/dev/null) || {
+            fail "${state_abbr}: USGS API unreachable at offset ${offset}"
+            rm -f "${tmp_json}"
+            return 1
+        }
+
+        local page_count total
+        read -r page_count total < <(echo "${page_response}" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+items = d.get('items', [])
+print(len(items), d.get('total', 0))
+" 2>/dev/null)
+
+        if [[ "${page_count:-0}" -eq 0 ]]; then
+            break
+        fi
+
+        # Merge this page's items into the accumulator file
+        echo "${page_response}" | python3 - "${tmp_json}" <<'PYMERGE'
+import sys, json
+page = json.load(sys.stdin)
+acc_path = sys.argv[1]
+with open(acc_path) as fh:
+    acc = json.load(fh)
+acc.extend(page.get("items", []))
+with open(acc_path, "w") as fh:
+    json.dump(acc, fh)
+PYMERGE
+
+        log "  ${state_abbr}: fetched offset ${offset}, got ${page_count} items (total=${total})"
+        offset=$(( offset + page_size ))
+        if (( offset >= total )); then
+            break
+        fi
+    done
 
     local count
-    count=$(echo "${response}" | python3 -c "
-import sys, json
-try:
-    d = json.load(sys.stdin)
-    items = d.get('items', [])
-    print(len(items))
-except:
-    print(0)
-" 2>/dev/null) || count=0
+    count=$(python3 -c "import json,sys; print(len(json.load(open(sys.argv[1]))))" "${tmp_json}" 2>/dev/null || echo 0)
 
     if [[ "${count}" -eq 0 ]]; then
         log "WARN ${state_abbr}: no topo quads found via TNM API — skipping"
+        rm -f "${tmp_json}"
         return 0
     fi
 
     log "  Found ${count} topo quad editions for ${state_abbr}; deduplicating and downloading new ones..."
-
-    # Deduplicate: keep only the most recently published edition of each quad name.
-    # Quad name = title with the year stripped (e.g. "USGS US Topo ... Ansonia, CT").
-    # Then download any quads not already on disk.
-    #
-    # NOTE: bash pipe+heredoc stdin conflict — when both "|" and "<<HEREDOC" are
-    # present, the heredoc wins for stdin, so the pipe data is never read by Python.
-    # Fix: write JSON to a temp file and pass its path as an extra argument.
-    local tmp_json
-    tmp_json=$(mktemp /tmp/survive-topo-XXXXXX.json)
-    printf '%s' "${response}" > "${tmp_json}"
 
     python3 - "${dest_dir}" "${tmp_json}" "${state_abbr}" <<'PYEOF'
 import sys, json, os, subprocess, re
@@ -260,13 +255,12 @@ dest_dir   = sys.argv[1]
 json_path  = sys.argv[2]
 state_abbr = sys.argv[3].upper()
 with open(json_path) as fh:
-    data = json.load(fh)
-items = data.get("items", [])
+    items = json.load(fh)
 
-# The TNM API &state= parameter is broken — it returns quads from all 50 states.
-# Filter client-side using the filename prefix, which is authoritative: USGS
+# Client-side state filter using filename prefix — authoritative because USGS
 # GeoPDF filenames always start with the 2-letter state abbreviation + "_"
-# (e.g. "CT_Ansonia_CT_20220101_TM_geo.pdf").
+# (e.g. "CT_Ansonia_CT_20220101_TM_geo.pdf").  Bbox may include cross-border
+# quads filed under a neighboring state; this filter keeps only this state's files.
 items = [i for i in items
          if os.path.basename((i.get("downloadURL") or "")).upper().startswith(state_abbr + "_")]
 
@@ -288,7 +282,6 @@ print(f"  Unique quads after dedup: {len(best)}", flush=True)
 for item in best.values():
     url = item.get("downloadURL", "")
     if not url:
-        # Fallback: first GeoPDF URL from the urls dict
         url = (item.get("urls") or {}).get("GeoPDF", "")
     if not url or not url.lower().endswith(".pdf"):
         continue
