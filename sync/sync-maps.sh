@@ -36,6 +36,10 @@ TMP_DIR="/tmp/survive-maps-$$"
 
 GEOFABRIK_BASE="https://download.geofabrik.de"
 USGS_TNM_API="https://tnmaccess.nationalmap.gov/api/v1/products"
+# Max new topo quads to download per state per sync run.
+# Already-present files are always skipped; remaining quads download on next sync.
+# Set to 0 to disable the cap (downloads everything in one run).
+MAX_TOPO_PER_STATE=50
 
 pbf_added=0; pbf_skipped=0; topo_added=0; topo_skipped=0; failed=0
 
@@ -256,12 +260,13 @@ PYMERGE
 
     log "  Found ${count} topo quad editions for ${state_abbr}; deduplicating and downloading new ones..."
 
-    python3 - "${dest_dir}" "${tmp_json}" "${state_abbr}" <<'PYEOF'
+    python3 - "${dest_dir}" "${tmp_json}" "${state_abbr}" "${MAX_TOPO_PER_STATE}" <<'PYEOF'
 import sys, json, os, subprocess, re
 
-dest_dir   = sys.argv[1]
-json_path  = sys.argv[2]
-state_abbr = sys.argv[3].upper()
+dest_dir        = sys.argv[1]
+json_path       = sys.argv[2]
+state_abbr      = sys.argv[3].upper()
+max_per_state   = int(sys.argv[4])
 with open(json_path) as fh:
     items = json.load(fh)
 
@@ -287,6 +292,7 @@ for item in items:
 
 print(f"  Unique quads after dedup: {len(best)}", flush=True)
 
+downloaded = 0
 for item in best.values():
     url = item.get("downloadURL", "")
     if not url:
@@ -299,6 +305,10 @@ for item in best.values():
     if os.path.exists(dest):
         continue
 
+    if max_per_state > 0 and downloaded >= max_per_state:
+        print(f"  CAP reached ({max_per_state}/run); remaining quads will download on next sync", flush=True)
+        break
+
     print(f"  DL {fname}", flush=True)
     ret = subprocess.run(
         ["wget", "-q", "--timeout=60", "--tries=2",
@@ -310,6 +320,8 @@ for item in best.values():
         print(f"  FAIL {fname}", flush=True)
         if os.path.exists(dest):
             os.remove(dest)
+    else:
+        downloaded += 1
 PYEOF
 
     rm -f "${tmp_json}"
