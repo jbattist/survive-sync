@@ -30,7 +30,7 @@ if ! mountpoint -q "${OFFLINE_ROOT}" 2>/dev/null; then
     exit 1
 fi
 
-MODULES="${SYNC_MODULES:-zim pdfs books maps video}"
+MODULES="${SYNC_MODULES:-zim pdfs books maps video classics}"
 
 # ── sync portal files ─────────────────────────────────────────────────────────
 # Keep the live portal up to date with whatever was deployed by install.sh.

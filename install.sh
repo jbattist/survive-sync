@@ -376,6 +376,42 @@ else
     fi
 fi
 
+# ── step 2c: NFS mount for TrueNAS classics video share ───────────────────────
+info "Step 2c: Configuring NFS mount for TrueNAS classics share"
+
+CLASSICS_NFS_EXPORT="/mnt/hdd/media/Classics"
+CLASSICS_NFS_MOUNT="/mnt/truenas-classics"
+CLASSICS_FSTAB_ENTRY="${NFS_HOST}:${CLASSICS_NFS_EXPORT}  ${CLASSICS_NFS_MOUNT}  nfs  ro,soft,timeo=30,retrans=2,noauto,x-systemd.automount,x-systemd.mount-timeout=30  0  0"
+CLASSICS_FSTAB_MARKER="survive-sync: truenas classics share"
+
+mkdir -p "${CLASSICS_NFS_MOUNT}"
+
+if grep -qF "${CLASSICS_FSTAB_MARKER}" /etc/fstab 2>/dev/null; then
+    info "  fstab: classics NFS entry already present"
+else
+    {
+        echo ""
+        echo "# ${CLASSICS_FSTAB_MARKER}"
+        echo "${CLASSICS_FSTAB_ENTRY}"
+    } >> /etc/fstab
+    info "  fstab: added NFS entry (${NFS_HOST}:${CLASSICS_NFS_EXPORT} → ${CLASSICS_NFS_MOUNT})"
+fi
+
+if mountpoint -q "${CLASSICS_NFS_MOUNT}" 2>/dev/null; then
+    info "  ${CLASSICS_NFS_MOUNT}: already mounted"
+else
+    info "  Testing NFS connectivity for classics share..."
+    if mount -t nfs -o ro,soft,timeo=30,retrans=2 \
+            "${NFS_HOST}:${CLASSICS_NFS_EXPORT}" "${CLASSICS_NFS_MOUNT}" 2>/dev/null; then
+        VID_COUNT=$(find "${CLASSICS_NFS_MOUNT}" -maxdepth 2 \( -name "*.mkv" -o -name "*.mp4" -o -name "*.avi" \) 2>/dev/null | wc -l)
+        info "  ${CLASSICS_NFS_MOUNT}: mounted OK — ${VID_COUNT} video file(s) visible"
+    else
+        warn "  ${CLASSICS_NFS_MOUNT}: could not mount now (TrueNAS may be offline)"
+        warn "  The fstab entry uses x-systemd.automount — it will mount on first access"
+        warn "  To test manually: sudo mount ${CLASSICS_NFS_MOUNT}"
+    fi
+fi
+
 
 # ── step 3: create directory structure ────────────────────────────────────────
 info "Step 3: Creating directory structure under ${OFFLINE_ROOT}"
@@ -426,6 +462,7 @@ dirs=(
     "${OFFLINE_ROOT}/video/morale"
     "${OFFLINE_ROOT}/video/agriculture"
     "${OFFLINE_ROOT}/video/shelter"
+    "${OFFLINE_ROOT}/video/classics"
     "${OFFLINE_ROOT}/indexes"
     "${OFFLINE_ROOT}/metadata"
     "${OFFLINE_ROOT}/scripts/sync"
