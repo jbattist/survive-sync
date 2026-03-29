@@ -610,6 +610,7 @@ systemctl daemon-reload
 # take effect immediately, not just on next boot.
 for svc in kiwix.service calibre-server.service mbtileserver.service; do
     systemctl enable "${svc}" 2>/dev/null || true
+    systemctl reset-failed "${svc}" 2>/dev/null || true
     systemctl restart "${svc}" && \
         info "  ${svc}: enabled and restarted" || \
         warn "  ${svc}: restart failed (check: systemctl status ${svc})"
@@ -701,6 +702,9 @@ info "  Caddyfile written to ${CADDY_CONF}"
 # the current Caddyfile, regardless of whether we wrote it this run or a
 # previous one.
 systemctl enable caddy 2>/dev/null || true
+# Reset any systemd failure count before restarting — if caddy previously crashed
+# and hit the restart rate-limit, systemd will refuse to start it without this.
+systemctl reset-failed caddy.service 2>/dev/null || true
 systemctl restart caddy && \
     info "  caddy.service: restarted OK" || \
     warn "  caddy restart failed — check: systemctl status caddy"
