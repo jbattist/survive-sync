@@ -379,8 +379,8 @@ fi
 # ── step 2c: NFS mount for TrueNAS classics video share ───────────────────────
 info "Step 2c: Configuring NFS mount for TrueNAS classics share"
 
-CLASSICS_NFS_EXPORT="/mnt/hdd/media/Classics"
-CLASSICS_NFS_MOUNT="/mnt/truenas-classics"
+CLASSICS_NFS_EXPORT="/mnt/hdd/media-classics"
+CLASSICS_NFS_MOUNT="/mnt/media-classics"
 CLASSICS_FSTAB_ENTRY="${NFS_HOST}:${CLASSICS_NFS_EXPORT}  ${CLASSICS_NFS_MOUNT}  nfs  ro,soft,timeo=30,retrans=2,noauto,x-systemd.automount,x-systemd.mount-timeout=30  0  0"
 CLASSICS_FSTAB_MARKER="survive-sync: truenas classics share"
 
