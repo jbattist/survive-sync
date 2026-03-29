@@ -243,23 +243,30 @@ else
 fi
 
 # pagefind — static full-text search index generator for the PDF portal
+# Install via GitHub release binary (aarch64-musl) — the pip package does not
+# reliably place a usable binary on aarch64.
 if ! command -v pagefind &>/dev/null; then
-    info "  Installing pagefind (static PDF search)..."
-    # Ensure pip is available — install python-pip via pacman if needed
-    if ! command -v pip3 &>/dev/null && ! command -v pip &>/dev/null; then
-        info "  pip not found — installing python-pip via pacman..."
-        pacman -S --noconfirm --needed python-pip || \
-            warn "  python-pip install failed — cannot install pagefind"
-    fi
-    _pip=$(command -v pip3 || command -v pip || true)
-    if [[ -z "${_pip}" ]]; then
-        warn "  pip/pip3 not found after install attempt — pagefind skipped; run: sudo pacman -S python-pip && pip3 install 'pagefind[extended]'"
-    else
-        # Install to /usr/local so the binary lands in /usr/local/bin/ and is on
-        # the PATH for all users including the library service account.
-        "${_pip}" install --break-system-packages --prefix=/usr/local -q "pagefind[extended]" && \
+    info "  Installing pagefind (static PDF search) from GitHub release..."
+    _pf_version=$(curl -sf --max-time 15 \
+        "https://api.github.com/repos/CloudCannon/pagefind/releases/latest" \
+        | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'].lstrip('v'))" \
+        2>/dev/null) || _pf_version="1.3.0"
+    info "  pagefind version: ${_pf_version}"
+    _pf_url="https://github.com/CloudCannon/pagefind/releases/download/v${_pf_version}/pagefind-v${_pf_version}-aarch64-unknown-linux-musl.tar.gz"
+    _pf_tmp=$(mktemp /tmp/pagefind-XXXXXX.tar.gz)
+    if curl -L --max-time 60 -o "${_pf_tmp}" "${_pf_url}" 2>/dev/null; then
+        tar -xzf "${_pf_tmp}" -C /usr/local/bin/ pagefind 2>/dev/null || \
+            tar -xzf "${_pf_tmp}" -C /usr/local/bin/ 2>/dev/null || true
+        chmod +x /usr/local/bin/pagefind 2>/dev/null || true
+        rm -f "${_pf_tmp}"
+        command -v pagefind &>/dev/null && \
             info "  pagefind: installed ($(pagefind --version 2>/dev/null || echo unknown))" || \
-            warn "  pagefind install failed — PDF search portal will not be built; run: pip3 install --prefix=/usr/local 'pagefind[extended]'"
+            warn "  pagefind binary not found after install — PDF search will be skipped"
+    else
+        rm -f "${_pf_tmp}"
+        warn "  pagefind download failed — PDF search portal will not be built"
+        warn "  To install manually: download from https://github.com/CloudCannon/pagefind/releases"
+        warn "  and place the aarch64-unknown-linux-musl binary at /usr/local/bin/pagefind"
     fi
 else
     info "  pagefind: already installed ($(pagefind --version 2>/dev/null || echo unknown))"
