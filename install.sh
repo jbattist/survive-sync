@@ -273,12 +273,79 @@ else
 fi
 
 # jellyfin — media server for offline movie playback
-if ! command -v jellyfin &>/dev/null && ! pacman -Qi jellyfin &>/dev/null 2>&1; then
-    info "  Installing jellyfin..."
-    install_aur_pkg jellyfin
-else
-    info "  jellyfin: already installed"
-fi
+# The AUR 'jellyfin' package depends on aspnet-runtime-2.1 which is x86_64-only.
+# On aarch64 we download the official self-contained arm64-musl tarball from
+# repo.jellyfin.org and install it to /opt/jellyfin.
+install_jellyfin() {
+    local install_dir="/opt/jellyfin"
+    local data_dir="/var/lib/jellyfin"
+    local cache_dir="/var/cache/jellyfin"
+    local log_dir="/var/log/jellyfin"
+    local config_dir="/etc/jellyfin"
+
+    # Already installed and up-to-date check
+    if [[ -x "${install_dir}/jellyfin" ]]; then
+        local current_ver
+        current_ver=$("${install_dir}/jellyfin" --version 2>/dev/null | awk '{print $1}' || echo "unknown")
+        info "  jellyfin: already installed (${current_ver})"
+        return 0
+    fi
+
+    info "  jellyfin: not found — installing from official arm64-musl tarball..."
+
+    # Resolve latest stable version
+    local jf_version
+    jf_version=$(curl -sf --max-time 15 \
+        "https://repo.jellyfin.org/files/server/linux/stable/" \
+        | grep -oP 'v\K[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -1 \
+        2>/dev/null) || jf_version="10.11.6"
+    info "  jellyfin version: ${jf_version}"
+
+    local jf_url="https://repo.jellyfin.org/files/server/linux/stable/v${jf_version}/arm64-musl/jellyfin_${jf_version}-arm64-musl.tar.gz"
+    local jf_tmp
+    jf_tmp=$(mktemp /tmp/jellyfin-XXXXXX.tar.gz)
+
+    if ! curl -L --max-time 300 -o "${jf_tmp}" "${jf_url}" 2>/dev/null; then
+        warn "  jellyfin download failed — install manually:"
+        warn "    ${jf_url}"
+        rm -f "${jf_tmp}"
+        return 1
+    fi
+
+    # Validate zip magic
+    if ! python3 -c "
+import sys
+with open('${jf_tmp}','rb') as f: magic=f.read(2)
+sys.exit(0 if magic==b'\x1f\x8b' else 1)
+" 2>/dev/null; then
+        warn "  jellyfin: downloaded file is not a valid gzip archive — skipping"
+        rm -f "${jf_tmp}"
+        return 1
+    fi
+
+    rm -rf "${install_dir}"
+    mkdir -p "${install_dir}"
+    tar -xzf "${jf_tmp}" -C "${install_dir}" --strip-components=1
+    rm -f "${jf_tmp}"
+
+    if [[ ! -x "${install_dir}/jellyfin" ]]; then
+        warn "  jellyfin binary not found after extract — check tarball structure"
+        return 1
+    fi
+
+    # Create jellyfin system user if needed
+    if ! id jellyfin &>/dev/null; then
+        useradd -r -m -d "${data_dir}" -s /usr/bin/nologin jellyfin
+        info "  Created system user: jellyfin"
+    fi
+
+    # Create required directories
+    mkdir -p "${data_dir}" "${cache_dir}" "${log_dir}" "${config_dir}"
+    chown -R jellyfin:jellyfin "${data_dir}" "${cache_dir}" "${log_dir}" "${config_dir}" "${install_dir}"
+
+    info "  jellyfin: installed to ${install_dir}"
+}
+install_jellyfin
 
 # ── step 2: set up USB data drive ─────────────────────────────────────────────
 info "Step 2: Setting up USB data drive (/srv/offline)"
@@ -648,6 +715,7 @@ cp "${SCRIPT_DIR}/systemd/survive-sync.service"    "${SYSTEMD_DIR}/"
 cp "${SCRIPT_DIR}/systemd/survive-sync.timer"      "${SYSTEMD_DIR}/"
 cp "${SCRIPT_DIR}/systemd/survive-books.service"   "${SYSTEMD_DIR}/"
 cp "${SCRIPT_DIR}/systemd/survive-books.timer"     "${SYSTEMD_DIR}/"
+cp "${SCRIPT_DIR}/systemd/jellyfin.service"        "${SYSTEMD_DIR}/"
 
 systemctl daemon-reload
 
@@ -661,8 +729,8 @@ for svc in kiwix.service calibre-server.service mbtileserver.service; do
         warn "  ${svc}: restart failed (check: systemctl status ${svc})"
 done
 
-# Jellyfin — enable and start (AUR package ships its own unit)
-if pacman -Qi jellyfin &>/dev/null 2>&1; then
+# Jellyfin — enable and start (tarball install to /opt/jellyfin)
+if [[ -x /opt/jellyfin/jellyfin ]]; then
     systemctl enable jellyfin 2>/dev/null || true
     systemctl reset-failed jellyfin 2>/dev/null || true
     systemctl restart jellyfin && \
