@@ -182,12 +182,40 @@ process_usgs_topo() {
 
     log "Checking USGS topo quads for ${state_abbr}"
 
-    # Query TNM API for US Topo GeoPDF quads by state.
+    # Map abbreviation → full state name for the TNM API &state= parameter.
+    # The TNM API &state= filter is authoritative; &q= is free-text and matches
+    # quads from neighboring states that mention the abbreviation in their metadata.
+    declare -A STATE_NAMES=(
+        [CT]="Connecticut" [ME]="Maine" [MA]="Massachusetts"
+        [NH]="New Hampshire" [RI]="Rhode Island" [VT]="Vermont"
+        [NY]="New York" [NJ]="New Jersey" [PA]="Pennsylvania"
+        [VA]="Virginia" [WV]="West Virginia" [MD]="Maryland"
+        [DE]="Delaware" [NC]="North Carolina" [SC]="South Carolina"
+        [GA]="Georgia" [FL]="Florida" [AL]="Alabama" [MS]="Mississippi"
+        [TN]="Tennessee" [KY]="Kentucky" [OH]="Ohio" [IN]="Indiana"
+        [IL]="Illinois" [MI]="Michigan" [WI]="Wisconsin" [MN]="Minnesota"
+        [IA]="Iowa" [MO]="Missouri" [AR]="Arkansas" [LA]="Louisiana"
+        [TX]="Texas" [OK]="Oklahoma" [KS]="Kansas" [NE]="Nebraska"
+        [SD]="South Dakota" [ND]="North Dakota" [MT]="Montana"
+        [WY]="Wyoming" [CO]="Colorado" [NM]="New Mexico" [AZ]="Arizona"
+        [UT]="Utah" [NV]="Nevada" [ID]="Idaho" [OR]="Oregon"
+        [WA]="Washington" [CA]="California" [AK]="Alaska" [HI]="Hawaii"
+    )
+    local state_name="${STATE_NAMES[${state_abbr}]:-}"
+    if [[ -z "${state_name}" ]]; then
+        fail "${state_abbr}: unknown state abbreviation — add it to STATE_NAMES in sync-maps.sh"
+        return 1
+    fi
+
+    # Query TNM API using &state= (authoritative state filter) not &q= (free-text,
+    # which bleeds quads from neighboring states into the results).
     # NOTE: prodFormats must be "GeoPDF" — the API returns 0 results for "PDF".
-    # max=500 fetches multiple editions per quad; the Python below deduplicates,
+    # max=500 fetches multiple editions per quad; Python below deduplicates,
     # keeping only the most recently published edition of each quad name.
+    local state_encoded
+    state_encoded=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "${state_name}")
     local topo_url="${USGS_TNM_API}?datasets=US%20Topo"
-    topo_url+="&prodFormats=GeoPDF&q=${state_abbr}&max=500&outputFormat=json"
+    topo_url+="&prodFormats=GeoPDF&state=${state_encoded}&max=500&outputFormat=json"
 
     local response
     response=$(curl -sf --max-time 60 "${topo_url}" 2>/dev/null) || {
