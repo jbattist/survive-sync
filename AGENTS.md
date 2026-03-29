@@ -36,8 +36,6 @@ None currently. See Previously Fixed table below for resolved items.
 ## Transient Issues (no action needed, re-test after next sync)
 
 - **archive.org 503/403** — still ongoing as of March 29. All `milmanual-*` archive.org URLs are failing with wget exit 8 (HTTP error). Non-archive.org PDFs download fine. Re-run sync once archive.org recovers.
-- **maps/ME USGS timeout** — Maine timed out (rate limiting). CT worked fine. Re-test.
-
 ---
 
 ## Known Cosmetic Issues (low priority)
@@ -60,6 +58,7 @@ None currently. See Previously Fixed table below for resolved items.
 | `0fcc8a2` | Fix bad systemd specifier in `survive-books.service` log path |
 | `v1.0.0` | wiktionary slug fixed, ARRL/IAEA PDFs commented out, princess-of-mars commented out |
 | v2 | `survive-books.timer` changed to 30 min; PDF search (poppler+pagefind) added to install.sh + rebuild-indexes.sh; `portal/search/index.html` + `portal/pdfs/index.html` generated on each sync |
+| `936df26` | USGS topo state filtering — switched from `&q=` (free-text, caused cross-state bleed) to `&state=Full State Name`; confirmed working, only downloads quads for configured states (NE + NY) |
 
 ---
 
