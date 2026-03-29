@@ -207,8 +207,9 @@ process_usgs_topo() {
         return 1
     fi
 
-    # Query TNM API using &state= (authoritative state filter) not &q= (free-text,
-    # which bleeds quads from neighboring states into the results).
+    # Query TNM API for US Topo GeoPDFs. The &state= parameter is broken
+    # server-side and returns quads from all 50 states — Python filters
+    # client-side by filename prefix after the response is received.
     # NOTE: prodFormats must be "GeoPDF" — the API returns 0 results for "PDF".
     # max=500 fetches multiple editions per quad; Python below deduplicates,
     # keeping only the most recently published edition of each quad name.
@@ -252,14 +253,22 @@ except:
     tmp_json=$(mktemp /tmp/survive-topo-XXXXXX.json)
     printf '%s' "${response}" > "${tmp_json}"
 
-    python3 - "${dest_dir}" "${tmp_json}" <<'PYEOF'
+    python3 - "${dest_dir}" "${tmp_json}" "${state_abbr}" <<'PYEOF'
 import sys, json, os, subprocess, re
 
-dest_dir  = sys.argv[1]
-json_path = sys.argv[2]
+dest_dir   = sys.argv[1]
+json_path  = sys.argv[2]
+state_abbr = sys.argv[3].upper()
 with open(json_path) as fh:
     data = json.load(fh)
 items = data.get("items", [])
+
+# The TNM API &state= parameter is broken — it returns quads from all 50 states.
+# Filter client-side using the filename prefix, which is authoritative: USGS
+# GeoPDF filenames always start with the 2-letter state abbreviation + "_"
+# (e.g. "CT_Ansonia_CT_20220101_TM_geo.pdf").
+items = [i for i in items
+         if os.path.basename((i.get("downloadURL") or "")).upper().startswith(state_abbr + "_")]
 
 # Deduplicate: for each quad (title without trailing year), keep most recent.
 # Title format: "USGS US Topo 7.5-minute map for <QuadName> YYYY"
