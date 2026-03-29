@@ -255,9 +255,11 @@ if ! command -v pagefind &>/dev/null; then
     if [[ -z "${_pip}" ]]; then
         warn "  pip/pip3 not found after install attempt — pagefind skipped; run: sudo pacman -S python-pip && pip3 install 'pagefind[extended]'"
     else
-        "${_pip}" install --break-system-packages -q "pagefind[extended]" && \
-            info "  pagefind: installed" || \
-            warn "  pagefind install failed — PDF search portal will not be built; run: pip3 install 'pagefind[extended]'"
+        # Install to /usr/local so the binary lands in /usr/local/bin/ and is on
+        # the PATH for all users including the library service account.
+        "${_pip}" install --break-system-packages --prefix=/usr/local -q "pagefind[extended]" && \
+            info "  pagefind: installed ($(pagefind --version 2>/dev/null || echo unknown))" || \
+            warn "  pagefind install failed — PDF search portal will not be built; run: pip3 install --prefix=/usr/local 'pagefind[extended]'"
     fi
 else
     info "  pagefind: already installed ($(pagefind --version 2>/dev/null || echo unknown))"
