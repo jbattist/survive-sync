@@ -360,17 +360,43 @@ setup_usb_drive() {
         return 0
     fi
 
-    # Check if already labelled — whole disk or first partition
+    # Check if already labelled — whole disk or first partition.
+    # Use blkid -p (direct probe, bypasses stale udev cache) for reliability.
     local use_dev=""
     for candidate in "${USB_DEV}" "${USB_DEV}1"; do
         if [[ -b "${candidate}" ]] && \
-           blkid -s LABEL -o value "${candidate}" 2>/dev/null | grep -qx "${USB_LABEL}"; then
+           blkid -p -s LABEL -o value "${candidate}" 2>/dev/null | grep -qx "${USB_LABEL}"; then
             use_dev="${candidate}"
             break
         fi
     done
 
+    # Fallback: check lsblk in case blkid cache is cold
     if [[ -z "${use_dev}" ]]; then
+        for candidate in "${USB_DEV}" "${USB_DEV}1"; do
+            if [[ -b "${candidate}" ]] && \
+               lsblk -no LABEL "${candidate}" 2>/dev/null | grep -qx "${USB_LABEL}"; then
+                use_dev="${candidate}"
+                break
+            fi
+        done
+    fi
+
+    if [[ -z "${use_dev}" ]]; then
+        # Safety gate: if ANY filesystem signature exists on the device, refuse to format.
+        # This prevents accidental data loss on a drive that simply has a different label.
+        local existing_type
+        existing_type=$(blkid -p -s TYPE -o value "${USB_DEV}" 2>/dev/null || true)
+        if [[ -n "${existing_type}" ]]; then
+            warn "  SAFETY STOP: ${USB_DEV} has an existing ${existing_type} filesystem"
+            warn "  but its label is not '${USB_LABEL}'. Refusing to format."
+            warn "  If this is the correct drive, relabel it manually:"
+            warn "    e2label ${USB_DEV} ${USB_LABEL}"
+            warn "  Then re-run install.sh."
+            return 0
+        fi
+
+        # Truly blank disk — safe to format
         info "  Formatting ${USB_DEV} as ext4 (label: ${USB_LABEL})..."
         warn "  *** ALL EXISTING DATA ON ${USB_DEV} WILL BE ERASED ***"
         # Format the whole disk directly — simpler for a dedicated single-purpose drive
