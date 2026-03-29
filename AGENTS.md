@@ -65,6 +65,7 @@ None currently. See Previously Fixed table below for resolved items.
 | `936df26` | USGS topo state filtering — switched from `&q=` to `&state=`; both broken server-side |
 | `9b0b126` | Client-side filename prefix filter — TNM `&state=` returns random 500 items from all states |
 | latest | Switch to `&bbox=` + `&offset=` pagination in `map-regions.conf` + `sync-maps.sh`; bbox is spatially accurate; filename prefix filter retained for cross-border quads |
+| `6c1e79e` | Jellyfin AUR package is x86_64-only on aarch64 — replaced with `install_jellyfin()` that downloads official arm64-musl tarball to `/opt/jellyfin`; added `systemd/jellyfin.service`; step 7 now copies the unit and checks binary existence instead of `pacman -Qi` |
 
 ---
 
