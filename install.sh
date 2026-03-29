@@ -669,6 +669,13 @@ cat > "${CADDY_CONF}" <<'CADDYFILE'
         file_server browse
     }
 
+    # Topo map downloads (USGS GeoPDF quads for ATAK / offline use)
+    handle /maps/topo/* {
+        root * /srv/offline/maps/topo
+        uri strip_prefix /maps/topo
+        file_server browse
+    }
+
     # PDF guides and manuals
     handle /pdfs/* {
         root * /srv/offline/pdfs
