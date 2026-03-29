@@ -46,13 +46,18 @@ These cause FAIL entries on every sync run. They are config bugs, not transient 
 - Downloads ~67KB HTML publications portal page, not a PDF
 - Fix: comment out or find a working direct PDF URL before re-enabling
 
+### 4. `config/book-list.conf` line ~110 — princess-of-mars Gutenberg URLs failing
+- Both `gutenberg.org/ebooks/36102.epub.images` and `.epub` return errors
+- Was failing during the March 23 archive.org outage — may still be transient, re-test
+- Causes `survive-books.service` to exit 1 on every hourly run until fixed
+- Fix: comment out until confirmed working, or leave and accept the cosmetic exit-1
+
 ---
 
 ## Transient Issues (no action needed, re-test after next sync)
 
 - **archive.org 503** — March 23 run hit a service outage; caused ~114 PDF `wget failed` errors.
   All those PDFs should download fine once archive.org recovers. Re-run sync to confirm.
-- **books/princess-of-mars** — both Gutenberg URLs failed during same outage window. Re-test.
 - **maps/ME USGS timeout** — Maine timed out (rate limiting). CT worked fine. Re-test.
 
 ---
@@ -72,6 +77,9 @@ These cause FAIL entries on every sync run. They are config bugs, not transient 
 | `06df20f` | @StoptheBleed video — hijacked channel replaced |
 | `919b476` | `calibre-server.service` unit suffix fix |
 | `47a3f56`, `5164700`, `f5cd97c`, `3a823c5`, `5a4a883` | MapLibre portal fixes |
+| `2892be6` | NFS book ingest from TrueNAS (install.sh + sync-books.sh) |
+| `64b3dcf` | `survive-books.service` + `survive-books.timer` (hourly NAS ingest) |
+| `0fcc8a2` | Fix bad systemd specifier in `survive-books.service` log path |
 
 ---
 
@@ -80,9 +88,8 @@ These cause FAIL entries on every sync run. They are config bugs, not transient 
 1. Fix `config/zim-list.conf` — change wiktionary slug (or ask Joe about commenting it out)
 2. Fix `config/pdf-sources.conf` — comment out ARRL emcomm-guide with explanation
 3. Fix `config/pdf-sources.conf` — comment out or fix IAEA radiological URL
-4. Commit: `git add config/zim-list.conf config/pdf-sources.conf && git commit -m "fix config: wiktionary slug, ARRL emcomm gated, IAEA radiological URL"`
-5. Push and deploy to Pi: `git pull && sudo bash install.sh`
-6. Re-run sync and confirm no more permanent FAILs: `sudo systemctl start survive-sync.service`
+4. Fix `config/book-list.conf` — comment out `princess-of-mars` until Gutenberg URL recovers
+5. Commit and push, then deploy: `git pull && sudo bash install.sh`
 
 ---
 
@@ -94,5 +101,8 @@ A healthy sync run shows:
 - `[PDF] FAIL filename.pdf` — investigate: check if URL is dead/gated or transient outage
 - `[VIDEO] added=N skipped=0` — cosmetic, see above
 - `[MAPS] OK` per region
+- `[BOOK] SKIP slug (in library)` — already ingested, no action
+- `[BOOK] ADD title` — new download or NAS ingest
+- `[BOOK] FAIL slug` — download failed; check if URL is broken or transient
 
 Logs live at `/srv/offline/logs/sync-YYYY-MM-DD.log` on the Pi.

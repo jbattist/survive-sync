@@ -17,6 +17,7 @@
 | Travel IP | 192.168.8.2 (static DHCP on Beryl) |
 | DNS name | `survive.travel` (Pi-hole static entry) |
 | Content user | `library` (system user, owns `/srv/offline`) |
+| NAS book share | `truenas.home:/mnt/hdd/books` → `/mnt/truenas-books` (ro, NFS automount) |
 
 ---
 
@@ -61,20 +62,34 @@ No raw service ports are exposed to clients.
 │   ├── 09-navigation/
 │   ├── 10-security/
 │   ├── 11-reference/
-│   └── 12-technology/
+│   ├── 12-technology/
+│   ├── 13-cbrn/
+│   ├── 14-transport/
+│   ├── 15-leadership/
+│   ├── 16-maritime/
+│   ├── 17-weather/
+│   ├── 18-firearms/
+│   ├── 19-logistics/
+│   ├── 20-classics/
+│   ├── 21-engineering/
+│   ├── 22-usmc/
+│   └── ...
 ├── books/
 │   ├── calibre-library/    Calibre database (metadata.db + book files)
-│   └── epub/
+│   ├── epub/               local copies of all ingested EPUBs
+│   └── .calibre-ingested.txt   dedup archive (one slug per line)
 ├── maps/
 │   ├── tiles/          *.mbtiles files (US Northeast: CT ME MA NH RI VT NY)
 │   ├── pbf/            Geofabrik OSM PBF source files
-│   └── topo/
+│   └── topo/           USGS topo PDFs
 ├── video/
 │   ├── first-aid/
 │   ├── repair/
 │   ├── power/
 │   ├── food/
-│   └── morale/
+│   ├── morale/
+│   ├── agriculture/
+│   └── shelter/
 ├── metadata/           hash records used by sync-pdfs.sh (sha256sums-pdfs.txt)
 ├── scripts/            sync scripts and configs (copied from this repo)
 └── logs/               sync-YYYY-MM-DD.log (one per day)
@@ -89,6 +104,7 @@ No raw service ports are exposed to clients.
 - Pi 5 booted with EndeavourOS ARM on microSD
 - 2TB SSD connected via USB
 - Pi reachable on the network (ethernet)
+- TrueNAS reachable at `truenas.home` (for NAS book ingest — optional)
 
 ### Steps
 
@@ -109,15 +125,16 @@ sudo bash install.sh
 
 ### What install.sh Does
 
-1. Installs packages: `tilemaker` (built from source on aarch64), `mbtileserver` (via `go install`), `kiwix-tools`, `calibre`, `yt-dlp`, `caddy`
+1. Installs packages: `tilemaker` (built from source on aarch64), `mbtileserver` (via `go install`), `kiwix-tools`, `calibre`, `yt-dlp`, `caddy`, `nfs-utils`
 2. Formats/mounts USB SSD at `/srv/offline` (ext4, label `survive-data`)
+2b. Configures NFS mount: adds `truenas.home:/mnt/hdd/books` → `/mnt/truenas-books` to `/etc/fstab` as a read-only automount; tests connectivity
 3. Creates full directory structure under `/srv/offline`
 4. Initializes empty Calibre library (`metadata.db`)
 5. Copies scripts, configs, and portal assets
 6. Downloads MapLibre GL JS and OpenMapTiles fonts (offline map viewer)
-7. Installs and restarts systemd units
+7. Installs and restarts systemd units (including `survive-books.timer`)
 8. Writes `/etc/caddy/Caddyfile` (always overwrites) and restarts Caddy
-9. Opens firewall ports (firewalld: adds ports to public + internal zones)
+9. Opens firewall ports (firewalld or nftables)
 10. Sets ownership: `chown -R library:library /srv/offline`
 11. Configures `sudo` for `library` user service restarts
 12. Installs `/etc/profile.d/survive-welcome.sh` (login banner)
@@ -133,6 +150,13 @@ sudo systemctl start survive-sync.service
 journalctl -u survive-sync -f          # Ctrl+C to detach, sync keeps running
 ```
 
+### Run Books Only (NAS ingest + Gutenberg)
+
+```bash
+sudo systemctl start survive-books.service
+journalctl -u survive-books -f
+```
+
 ### Run Specific Modules Only
 
 ```bash
@@ -140,20 +164,25 @@ SYNC_MODULES='pdfs books' sudo systemctl start survive-sync.service
 # modules: zim pdfs books maps video
 ```
 
-### Timer
+### Timers
 
-Runs automatically every Sunday at 02:00. `Persistent=true` — if the Pi was off, it
-catches up on next boot.
+| Timer | Schedule | Purpose |
+|---|---|---|
+| `survive-sync.timer` | Weekly, Sunday 02:00 | Full sync (ZIM, PDFs, books, maps, video) |
+| `survive-books.timer` | Hourly | Books only — picks up new EPUBs from NAS within an hour |
+
+Both timers use `Persistent=true` — if the Pi was off at trigger time, they run on next boot.
 
 ```bash
-systemctl list-timers survive-sync.timer
+TERM=xterm systemctl list-timers survive-sync.timer survive-books.timer
 ```
 
 ### Check Sync Status
 
 ```bash
-journalctl -u survive-sync -n 100 --no-pager
-systemctl status survive-sync
+TERM=xterm journalctl -u survive-sync -n 100 --no-pager
+TERM=xterm journalctl -u survive-books -n 100 --no-pager
+TERM=xterm systemctl status survive-sync survive-books
 ```
 
 ### Reading Sync Logs
@@ -172,8 +201,41 @@ grep FAIL /srv/offline/logs/sync-$(date +%Y-%m-%d).log
 ls -lh /srv/offline/logs/
 ```
 
-Each module prefixes its lines: `[ZIM]`, `[PDF]`, `[VIDEO]`, `[MAPS]`, `[BOOKS]`.
+Each module prefixes its lines: `[ZIM]`, `[PDF]`, `[VIDEO]`, `[MAPS]`, `[BOOK]`.
 A run ends with a summary line per module: `added=N skipped=N failed=N`.
+
+---
+
+## NAS Book Ingest
+
+EPUBs on the TrueNAS share (`truenas.home:/mnt/hdd/books`) are automatically copied
+to `/srv/offline/books/epub/` and added to the Calibre library by `sync-books.sh`.
+
+### How it works
+
+- The NFS share is mounted read-only at `/mnt/truenas-books` (automount via fstab)
+- `sync-books.sh` scans the mount after the Gutenberg/Standard Ebooks phase
+- Any `.epub` found is validated (>5KB, valid ZIP header), copied locally, and ingested via `calibredb add`
+- Deduplication uses `/srv/offline/books/.calibre-ingested.txt` (slug = filename stem) — books already in the library are skipped instantly
+- `survive-books.timer` runs the process hourly so new books appear in Calibre within an hour
+
+### Adding books to the NAS
+
+Drop any `.epub` file into `truenas.home:/mnt/hdd/books` (or any subdirectory).
+It will appear in the Calibre library within one hour. To ingest immediately:
+
+```bash
+sudo systemctl start survive-books.service
+journalctl -u survive-books -f
+```
+
+### Verify the NFS mount
+
+```bash
+mountpoint /mnt/truenas-books && ls /mnt/truenas-books
+# If not mounted:
+sudo mount /mnt/truenas-books
+```
 
 ---
 
@@ -182,7 +244,7 @@ A run ends with a summary line per module: `added=N skipped=N failed=N`.
 ### Status at a Glance
 
 ```bash
-systemctl status caddy kiwix calibre-server mbtileserver --no-pager
+TERM=xterm systemctl status caddy kiwix calibre-server mbtileserver --no-pager
 ```
 
 ### Restart All Services
@@ -203,15 +265,28 @@ sudo systemctl restart mbtileserver
 ### View Logs
 
 ```bash
-journalctl -u caddy -f
-journalctl -u kiwix -f
-journalctl -u calibre-server -f
-journalctl -u mbtileserver -f
+TERM=xterm journalctl -u caddy -f
+TERM=xterm journalctl -u kiwix -f
+TERM=xterm journalctl -u calibre-server -f
+TERM=xterm journalctl -u mbtileserver -f
 ```
 
 ---
 
 ## Troubleshooting
+
+### Terminal output swallowed / pager broken
+
+If using Ghostty or another modern terminal, systemd may not recognize the terminal type:
+
+```bash
+export TERM=xterm
+```
+
+Add to `~/.bashrc` on the Pi to make it permanent. Then `systemctl` output will display
+normally without needing `--no-pager` every time.
+
+---
 
 ### Sync FAIL entries
 
@@ -225,7 +300,7 @@ First, check whether the failure is transient or permanent.
 ```bash
 # Rerun just the affected module to confirm
 SYNC_MODULES='pdfs' sudo systemctl start survive-sync.service
-journalctl -u survive-sync -f
+TERM=xterm journalctl -u survive-sync -f
 ```
 
 **Permanent** — re-runs won't help, config needs fixing:
@@ -273,8 +348,8 @@ sudo bash ~/survive-sync/install.sh   # step 8 always rewrites it
 
 Calibre isn't running. Check why:
 ```bash
-systemctl status calibre-server
-journalctl -u calibre-server -n 30 --no-pager
+TERM=xterm systemctl status calibre-server
+TERM=xterm journalctl -u calibre-server -n 30 --no-pager
 ```
 
 **"There is no calibre library"** — library was never initialized:
@@ -287,23 +362,51 @@ rm "$_tmp"
 sudo systemctl restart calibre-server
 ```
 
+### Books sync exits with failure but books are being added
+
+If the only `FAIL` line is a single book (e.g. `princess-of-mars--burroughs`), the
+sync is working correctly — one failed download causes exit 1 even when everything
+else succeeded. Check `AGENTS.md` for known permanent failures to comment out.
+
+### NAS books not appearing in Calibre
+
+1. Check the NFS mount is up:
+```bash
+mountpoint /mnt/truenas-books
+ls /mnt/truenas-books
+```
+
+2. Force a books sync and watch the NFS scan section:
+```bash
+sudo systemctl start survive-books.service
+TERM=xterm journalctl -u survive-books -f
+```
+
+3. Check the ingest archive to see if a book was already recorded:
+```bash
+grep "filename-stem" /srv/offline/books/.calibre-ingested.txt
+```
+
+If a book is in the archive but not in Calibre (e.g. archive was manually edited or
+`calibredb add` failed silently), remove its line from the archive and re-run the sync.
+
 ### Wikipedia — 502 Bad Gateway
 
 ```bash
-systemctl status kiwix
-journalctl -u kiwix -n 30 --no-pager
+TERM=xterm systemctl status kiwix
+TERM=xterm journalctl -u kiwix -n 30 --no-pager
 ```
 
 No ZIM files yet — sync hasn't finished. Check progress:
 ```bash
 ls -lh /srv/offline/kiwix/zim/
-journalctl -u survive-sync -n 50 --no-pager
+TERM=xterm journalctl -u survive-sync -n 50 --no-pager
 ```
 
 ### Maps not loading
 
 ```bash
-systemctl status mbtileserver
+TERM=xterm systemctl status mbtileserver
 ls /srv/offline/maps/tiles/*.mbtiles    # files must exist
 ```
 
@@ -314,7 +417,7 @@ If no `.mbtiles` files: maps sync hasn't run or failed. Check sync logs.
 The SSD isn't mounted. All services depend on it:
 ```bash
 lsblk
-systemctl status srv-offline.mount
+TERM=xterm systemctl status srv-offline.mount
 sudo systemctl start srv-offline.mount
 ```
 
@@ -394,6 +497,7 @@ If the SD card dies or the OS needs to be reflashed:
 4. `sudo bash ~/survive-sync/install.sh`
 
 All content on `/srv/offline` is preserved. Only the OS and services need to be reinstalled.
+The NFS fstab entry and book ingest archive are also restored by `install.sh`.
 
 ---
 
@@ -406,8 +510,10 @@ All content on `/srv/offline` is preserved. Only the OS and services need to be 
 | `calibre-server.service` | Calibre ebook server, port 8081, depends on mount |
 | `mbtileserver.service` | Map tile server, port 8082, depends on mount |
 | `caddy.service` | Reverse proxy and portal, port 80 |
-| `survive-sync.service` | Oneshot sync job (runs `sync-all.sh`) |
+| `survive-sync.service` | Oneshot full sync job (runs `sync-all.sh`) |
 | `survive-sync.timer` | Weekly timer, Sunday 02:00, Persistent=true |
+| `survive-books.service` | Oneshot books-only sync (runs `sync-books.sh`) |
+| `survive-books.timer` | Hourly timer, Persistent=true — NAS book ingest |
 
 All unit files live in `/etc/systemd/system/` and are sourced from this repo at `systemd/`.
 
@@ -435,7 +541,7 @@ survive-sync/
 │   ├── sync-all.sh
 │   ├── sync-zim.sh
 │   ├── sync-pdfs.sh
-│   ├── sync-books.sh
+│   ├── sync-books.sh           also run standalone by survive-books.service
 │   ├── sync-maps.sh
 │   └── sync-video.sh
 ├── postprocess/
@@ -445,4 +551,13 @@ survive-sync/
 ├── scripts/
 │   └── survive-welcome.sh      login banner → /etc/profile.d/
 └── systemd/                    unit files → /etc/systemd/system/
+    ├── srv-offline.mount
+    ├── kiwix.service
+    ├── calibre-server.service
+    ├── mbtileserver.service
+    ├── caddy.service
+    ├── survive-sync.service
+    ├── survive-sync.timer
+    ├── survive-books.service
+    └── survive-books.timer
 ```
