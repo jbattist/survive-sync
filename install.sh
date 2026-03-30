@@ -892,7 +892,7 @@ path = sys.argv[1]
 with open(path) as f:
     content = f.read()
 
-SURVIVE_PORTS = ['80', '8080', '8081', '8082']
+SURVIVE_PORTS = ['80', '8080', '8081', '8082', '8096']
 NEW_RULE = '    tcp dport { ' + ', '.join(SURVIVE_PORTS) + ' } accept comment "allow survive services"\n'
 
 # Pattern 1: existing tcp dport list — append our missing ports
