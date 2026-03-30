@@ -529,6 +529,11 @@ else
     info "  User library: exists"
 fi
 
+# jellyfin reads media from /srv/offline — add it to the library group
+usermod -aG library jellyfin 2>/dev/null && \
+    info "  jellyfin added to library group (can read /srv/offline)" || \
+    warn "  Could not add jellyfin to library group — media scans may fail"
+
 dirs=(
     "${OFFLINE_ROOT}/portal/splash"
     "${OFFLINE_ROOT}/kiwix/zim"
