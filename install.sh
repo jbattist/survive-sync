@@ -862,13 +862,10 @@ systemctl restart caddy && \
     warn "  caddy restart failed — check: systemctl status caddy"
 
 # ── step 9: open firewall ports for survive services ─────────────────────────
-info "Step 9: Opening firewall ports (80, 8080, 8081, 8082, 8096)"
-
-SURVIVE_PORTS=(80 8080 8081 8082 8096)
+info "Step 9: Configuring firewall"
 
 if systemctl is-active --quiet firewalld 2>/dev/null; then
-    # firewalld is running — use firewall-cmd (editing nftables.conf directly
-    # is ineffective because firewalld owns the nftables ruleset)
+    # firewalld is running — use firewall-cmd
     info "  firewalld detected — using firewall-cmd"
     firewall-cmd --permanent --add-service=http 2>/dev/null || true
     for port in 8080 8081 8082 8096; do
@@ -877,89 +874,42 @@ if systemctl is-active --quiet firewalld 2>/dev/null; then
     firewall-cmd --reload 2>/dev/null && \
         info "  firewalld: ports opened and reloaded" || \
         warn "  firewall-cmd reload failed — run manually: sudo firewall-cmd --reload"
-elif [[ -f "${NFTABLES_CONF}" ]]; then
-    # Plain nftables — patch the config file directly
-    if grep -q 'allow survive services' "${NFTABLES_CONF}"; then
-        info "  nftables: survive ports already present"
-    else
-        info "  Patching nftables config..."
-        cp "${NFTABLES_CONF}" "${NFTABLES_CONF}.bak-$(date +%Y%m%d%H%M%S)"
-
-        python3 - "${NFTABLES_CONF}" <<'PYEOF'
-import sys, re
-
-path = sys.argv[1]
-with open(path) as f:
-    content = f.read()
-
-SURVIVE_PORTS = ['80', '8080', '8081', '8082', '8096']
-NEW_RULE = '    tcp dport { ' + ', '.join(SURVIVE_PORTS) + ' } accept comment "allow survive services"\n'
-
-# Pattern 1: existing tcp dport list — append our missing ports
-def add_to_dport_list(m):
-    inner = m.group(1)
-    ports = [p.strip() for p in inner.split(',')]
-    for p in SURVIVE_PORTS:
-        if p not in ports:
-            ports.append(p)
-    return 'tcp dport { ' + ', '.join(ports) + ' } accept'
-
-new_content, n = re.subn(r'tcp dport \{([^}]+)\} accept', add_to_dport_list, content)
-if n > 0:
-    with open(path, 'w') as f:
-        f.write(new_content)
-    print(f"nftables: added survive ports to existing tcp dport list ({n} match(es))")
-    sys.exit(0)
-
-# Pattern 2: individual tcp dport rules — insert after the last one
-new_content, n = re.subn(
-    r'([ \t]*tcp dport \S+ accept[^\n]*\n)(?![ \t]*tcp dport)',
-    r'\1' + NEW_RULE,
-    content
-)
-if n > 0:
-    with open(path, 'w') as f:
-        f.write(new_content)
-    print("nftables: inserted survive ports rule after existing tcp dport rule")
-    sys.exit(0)
-
-# Fallback: insert before closing brace of chain input using brace counting
-# (regex with [^}] cannot handle nested brace sets like icmpv6 type { ... })
-idx = content.find('chain input {')
-if idx != -1:
-    depth = 0
-    pos = idx
-    while pos < len(content):
-        if content[pos] == '{':
-            depth += 1
-        elif content[pos] == '}':
-            depth -= 1
-            if depth == 0:
-                break
-        pos += 1
-    if depth == 0:
-        new_content = content[:pos] + NEW_RULE + content[pos:]
-        with open(path, 'w') as f:
-            f.write(new_content)
-        print("nftables: inserted survive ports rule into chain input block")
-        sys.exit(0)
-
-print("WARNING: could not find insertion point in nftables config")
-print("Add this rule manually inside the 'chain input' block:")
-print(f"  {NEW_RULE.strip()}")
-PYEOF
-
-        if systemctl is-active --quiet nftables 2>/dev/null; then
-            nft -f "${NFTABLES_CONF}" && \
-                info "  nftables: reloaded with survive ports" || \
-                warn "  nftables reload failed — run: sudo nft -f ${NFTABLES_CONF}"
-        else
-            info "  nftables: config updated (not active — enable with: systemctl enable --now nftables)"
-        fi
-    fi
 else
-    warn "  No firewalld or nftables config found — open ports manually:"
-    warn "  tcp ports: 80, 8080, 8081, 8082"
+    # Write a known-good nftables.conf directly — this is a dedicated appliance
+    # and we own the full ruleset. No patching, no parsing, no surprises.
+    info "  Writing /etc/nftables.conf"
+    cat > "${NFTABLES_CONF}" << 'NFTEOF'
+#!/usr/bin/nft -f
+
+table inet filter {
+  chain input {
+    type filter hook input priority filter; policy drop;
+
+    ct state { established, related } accept
+    ct state invalid drop
+
+    iif lo accept
+
+    ip protocol icmp accept
+    ip6 nexthdr icmpv6 accept
+
+    tcp dport { 22, 80, 8080, 8081, 8082, 8096 } accept comment "allow survive services"
+  }
+
+  chain forward {
+    type filter hook forward priority filter; policy drop;
+  }
+
+  chain output {
+    type filter hook output priority filter; policy accept;
+  }
+}
+NFTEOF
+
+    systemctl enable nftables 2>/dev/null || true
+    nft -f "${NFTABLES_CONF}" && \
+        info "  nftables: loaded (ssh + survive services open)" || \
+        warn "  nftables reload failed — run: sudo nft -f ${NFTABLES_CONF}"
 fi
 
 # ── step 10: ownership ────────────────────────────────────────────────────────
