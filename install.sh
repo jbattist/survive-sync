@@ -923,17 +923,26 @@ if n > 0:
     print("nftables: inserted survive ports rule after existing tcp dport rule")
     sys.exit(0)
 
-# Fallback: insert before closing brace of chain input
-new_content, n = re.subn(
-    r'(chain input \{[^}]+?)([ \t]*\})',
-    lambda m: m.group(1) + NEW_RULE + m.group(2),
-    content, flags=re.DOTALL
-)
-if n > 0:
-    with open(path, 'w') as f:
-        f.write(new_content)
-    print("nftables: inserted survive ports rule into chain input block")
-    sys.exit(0)
+# Fallback: insert before closing brace of chain input using brace counting
+# (regex with [^}] cannot handle nested brace sets like icmpv6 type { ... })
+idx = content.find('chain input {')
+if idx != -1:
+    depth = 0
+    pos = idx
+    while pos < len(content):
+        if content[pos] == '{':
+            depth += 1
+        elif content[pos] == '}':
+            depth -= 1
+            if depth == 0:
+                break
+        pos += 1
+    if depth == 0:
+        new_content = content[:pos] + NEW_RULE + content[pos:]
+        with open(path, 'w') as f:
+            f.write(new_content)
+        print("nftables: inserted survive ports rule into chain input block")
+        sys.exit(0)
 
 print("WARNING: could not find insertion point in nftables config")
 print("Add this rule manually inside the 'chain input' block:")
