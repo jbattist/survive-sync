@@ -843,11 +843,6 @@ cat > "${CADDY_CONF}" <<'CADDYFILE'
         file_server browse
     }
 
-    # Jellyfin media server — classic movies
-    handle /movies* {
-        reverse_proxy 127.0.0.1:8096
-    }
-
     # Portal — static files
     root * /srv/offline/portal
     file_server
