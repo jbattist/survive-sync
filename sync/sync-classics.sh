@@ -70,7 +70,8 @@ done < <(rsync \
     --no-perms \
     --omit-dir-times \
     --itemize-changes \
-    --timeout=60 \
+    --timeout=120 \
+    --bwlimit=50000 \
     "${NFS_MOUNT}/" "${DEST_DIR}/" \
     2>&1 | tee -a "${LOG_FILE}")
 
