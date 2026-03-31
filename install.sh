@@ -285,13 +285,13 @@ install_jellyfin() {
     local config_dir="/etc/jellyfin"
 
     # Already installed check — verify binary exists AND actually executes
-    if [[ -x "${install_dir}/jellyfin" ]] && "${install_dir}/jellyfin" --version &>/dev/null; then
-        local current_ver
-        current_ver=$("${install_dir}/jellyfin" --version 2>/dev/null | awk '{print $1}' || echo "unknown")
+    local current_ver
+    current_ver=$("${install_dir}/jellyfin" --version 2>/dev/null | awk '{print $1}')
+    if [[ -n "${current_ver}" ]]; then
         info "  jellyfin: already installed (${current_ver})"
         return 0
-    elif [[ -x "${install_dir}/jellyfin" ]]; then
-        warn "  jellyfin binary exists but won't run — reinstalling..."
+    elif [[ -e "${install_dir}/jellyfin" ]]; then
+        warn "  jellyfin binary missing or broken (size=$(stat -c%s "${install_dir}/jellyfin" 2>/dev/null || echo '?') bytes) — reinstalling..."
         rm -rf "${install_dir}"
     fi
 
