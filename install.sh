@@ -866,56 +866,14 @@ systemctl restart caddy && \
     info "  caddy.service: restarted OK" || \
     warn "  caddy restart failed — check: systemctl status caddy"
 
-# ── step 9: open firewall ports for survive services ─────────────────────────
-info "Step 9: Configuring firewall"
-
-if systemctl is-active --quiet firewalld 2>/dev/null; then
-    # firewalld is running — use firewall-cmd
-    info "  firewalld detected — using firewall-cmd"
-    firewall-cmd --permanent --add-service=http 2>/dev/null || true
-    for port in 8080 8081 8082 8096; do
-        firewall-cmd --permanent --add-port="${port}/tcp" 2>/dev/null || true
-    done
-    firewall-cmd --reload 2>/dev/null && \
-        info "  firewalld: ports opened and reloaded" || \
-        warn "  firewall-cmd reload failed — run manually: sudo firewall-cmd --reload"
-else
-    # Write a known-good nftables.conf directly — this is a dedicated appliance
-    # and we own the full ruleset. No patching, no parsing, no surprises.
-    info "  Writing /etc/nftables.conf"
-    cat > "${NFTABLES_CONF}" << 'NFTEOF'
-#!/usr/bin/nft -f
-
-table inet filter {
-  chain input {
-    type filter hook input priority filter; policy drop;
-
-    ct state { established, related } accept
-    ct state invalid drop
-
-    iif lo accept
-
-    ip protocol icmp accept
-    ip6 nexthdr icmpv6 accept
-
-    tcp dport { 22, 80, 8080, 8081, 8082, 8096 } accept comment "allow survive services"
-  }
-
-  chain forward {
-    type filter hook forward priority filter; policy drop;
-  }
-
-  chain output {
-    type filter hook output priority filter; policy accept;
-  }
-}
-NFTEOF
-
-    systemctl enable nftables 2>/dev/null || true
-    nft -f "${NFTABLES_CONF}" && \
-        info "  nftables: loaded (ssh + survive services open)" || \
-        warn "  nftables reload failed — run: sudo nft -f ${NFTABLES_CONF}"
-fi
+# ── step 9: firewall ──────────────────────────────────────────────────────────
+# survive is a trusted LAN appliance — the edge router (UDR7 / Beryl AX)
+# provides perimeter protection. A local host firewall only causes pain.
+info "Step 9: Disabling local firewall (edge router provides protection)"
+systemctl disable --now nftables 2>/dev/null || true
+systemctl disable --now firewalld 2>/dev/null || true
+nft flush ruleset 2>/dev/null || true
+info "  nftables/firewalld disabled and ruleset flushed"
 
 # ── step 10: ownership ────────────────────────────────────────────────────────
 info "Step 10: Setting ownership"
