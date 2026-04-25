@@ -33,7 +33,7 @@ See `SURVIVE.md` for full architecture, install, and operations reference.
 
 ## Known Permanent Config Failures (need fixing)
 
-- **tilemaker: broken shared lib** — `libboost_filesystem.so.1.89.0` missing after Boost upgrade to 1.90.0-4. `[MAP] FAIL connecticut` every run. Fix: `sudo pacman -Syu boost-libs` then rebuild tilemaker from source (it's not a pacman package), or `sudo pacman -S tilemaker` if available in AUR. Run from Pi with sudo.
+- **tilemaker: broken shared lib** — `libboost_filesystem.so.1.89.0` missing after Boost upgrade to 1.90.0-4. `[MAP] FAIL connecticut` every run. Fix: `yay -S tilemaker` on the Pi to reinstall/rebuild against current Boost.
 
 ---
 
