@@ -33,7 +33,7 @@ See `SURVIVE.md` for full architecture, install, and operations reference.
 
 ## Known Permanent Config Failures (need fixing)
 
-- **tilemaker: broken shared lib** — `libboost_filesystem.so.1.89.0` missing after Boost upgrade to 1.90.0-4. `[MAP] FAIL connecticut` every run. Fix: `git pull && sudo bash install.sh` on the Pi — install.sh now detects broken binary and rebuilds from source. AUR pkg is x86_64 only, must build from source on aarch64.
+None currently. See Previously Fixed table below for resolved items.
 
 ---
 
@@ -66,6 +66,7 @@ See `SURVIVE.md` for full architecture, install, and operations reference.
 | `9b0b126` | Client-side filename prefix filter — TNM `&state=` returns random 500 items from all states |
 | latest | Switch to `&bbox=` + `&offset=` pagination in `map-regions.conf` + `sync-maps.sh`; bbox is spatially accurate; filename prefix filter retained for cross-border quads |
 | `6c1e79e` | Jellyfin AUR package is x86_64-only on aarch64 — replaced with `install_jellyfin()` that downloads official arm64-musl tarball to `/opt/jellyfin`; added `systemd/jellyfin.service`; step 7 now copies the unit and checks binary existence instead of `pacman -Qi` |
+| `5a2ece4` | tilemaker install check now verifies binary runs (not just exists) — catches post-Boost-upgrade broken-lib breakage; rebuilds from source on aarch64 since AUR pkg is x86_64 only |
 
 ---
 
