@@ -33,7 +33,7 @@ See `SURVIVE.md` for full architecture, install, and operations reference.
 
 ## Known Permanent Config Failures (need fixing)
 
-- **tilemaker: broken shared lib** — `libboost_filesystem.so.1.89.0` missing after Boost upgrade to 1.90.0-4. `[MAP] FAIL connecticut` every run. Fix: `yay -S tilemaker` on the Pi to reinstall/rebuild against current Boost.
+- **tilemaker: broken shared lib** — `libboost_filesystem.so.1.89.0` missing after Boost upgrade to 1.90.0-4. `[MAP] FAIL connecticut` every run. Fix: `git pull && sudo bash install.sh` on the Pi — install.sh now detects broken binary and rebuilds from source. AUR pkg is x86_64 only, must build from source on aarch64.
 
 ---
 
