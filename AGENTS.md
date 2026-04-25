@@ -33,13 +33,13 @@ See `SURVIVE.md` for full architecture, install, and operations reference.
 
 ## Known Permanent Config Failures (need fixing)
 
-None currently. See Previously Fixed table below for resolved items.
+- **tilemaker: broken shared lib** — `libboost_filesystem.so.1.89.0` missing after Boost upgrade to 1.90.0-4. `[MAP] FAIL connecticut` every run. Fix: `sudo pacman -Syu boost-libs` then rebuild tilemaker from source (it's not a pacman package), or `sudo pacman -S tilemaker` if available in AUR. Run from Pi with sudo.
 
 ---
 
 ## Transient Issues (no action needed, re-test after next sync)
 
-- **archive.org 503/403** — still ongoing as of March 29. All `milmanual-*` archive.org URLs are failing with wget exit 8 (HTTP error). Non-archive.org PDFs download fine. Re-run sync once archive.org recovers.
+- **archive.org 503/403** — still ongoing as of April 25. All `milmanual-*` archive.org URLs are failing with wget exit 8 (HTTP error). Non-archive.org PDFs download fine. Additionally, `set -euo pipefail` + the wget pipe was causing silent script death before FAIL could be logged — fixed in commit `c685fc1` (`|| true` on wget pipe). Re-run sync once archive.org recovers.
 ---
 
 ## Known Cosmetic Issues (low priority)
