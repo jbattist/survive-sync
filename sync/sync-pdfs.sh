@@ -98,7 +98,7 @@ while IFS=$'\t' read -r url local_filename category_dir priority description; do
         --tries=1 \
         --user-agent="survive-sync/1.0" \
         -O "${tmp_file}" \
-        "${url}" 2>&1 | tee -a "${LOG_FILE}"
+        "${url}" 2>&1 | tee -a "${LOG_FILE}" || true
     wget_rc=${PIPESTATUS[0]}
 
     if (( wget_rc != 0 )); then
