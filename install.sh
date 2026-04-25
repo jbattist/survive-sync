@@ -534,6 +534,11 @@ usermod -aG library jellyfin 2>/dev/null && \
     info "  jellyfin added to library group (can read /srv/offline)" || \
     warn "  Could not add jellyfin to library group — media scans may fail"
 
+# joe needs library group membership to write logs during interactive sync runs
+usermod -aG library joe 2>/dev/null && \
+    info "  joe added to library group (can write logs interactively)" || \
+    warn "  Could not add joe to library group — interactive sync logs may not write"
+
 dirs=(
     "${OFFLINE_ROOT}/portal/splash"
     "${OFFLINE_ROOT}/kiwix/zim"
@@ -878,7 +883,9 @@ info "  nftables/firewalld disabled and ruleset flushed"
 # ── step 10: ownership ────────────────────────────────────────────────────────
 info "Step 10: Setting ownership"
 chown -R library:library "${OFFLINE_ROOT}"
+chmod 775 "${OFFLINE_ROOT}/logs"
 info "  ${OFFLINE_ROOT}: owned by library:library"
+info "  ${OFFLINE_ROOT}/logs: group-writable (775)"
 
 # ── step 11: allow library user to restart services via sudo ──────────────────
 info "Step 11: Configuring sudo for service restarts"
