@@ -52,7 +52,7 @@ YTDLP_OPTS=(
     --fragment-retries 3
     --retry-sleep 10
     --quiet
-    --progress
+    --no-progress
     --console-title
 )
 
