@@ -77,9 +77,11 @@ install_aur_pkg() {
 # tilemaker — converts OSM PBF to MBTiles
 # The AUR package declares arch=('x86_64') only, so on aarch64 (Pi 5) we build from source.
 install_tilemaker() {
-    if command -v tilemaker &>/dev/null; then
+    if command -v tilemaker &>/dev/null && tilemaker --version &>/dev/null 2>&1; then
         info "  tilemaker: already installed"
         return 0
+    elif command -v tilemaker &>/dev/null; then
+        warn "  tilemaker: binary found but broken (missing shared libs?) — rebuilding"
     fi
 
     local arch
