@@ -352,7 +352,6 @@ STUB
     # Run Pagefind — index the whole portal directory
     log "  Running pagefind --site ${PORTAL_ROOT} ..."
     pagefind --site "${PORTAL_ROOT}" \
-             --source "${SEARCH_STUBS}" \
              --output-path "${PORTAL_ROOT}/pagefind" \
              2>&1 | sed 's/^/[POSTPROCESS][pagefind] /' || \
         log "WARN: pagefind exited non-zero — search index may be incomplete"
