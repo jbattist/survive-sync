@@ -3,13 +3,16 @@ Description=Survive Books Sync (NAS + Gutenberg ingest)
 Documentation=file:///srv/offline/scripts/sync/sync-books.sh
 After=network-online.target srv-offline.mount
 Wants=network-online.target srv-offline.mount
-# Don't run if the full sync is already running
-Conflicts=survive-sync.service
 
 [Service]
 Type=oneshot
 User=library
 Group=library
+
+# Skip the books-only timer while the full sync is running.
+# Do not use Conflicts=survive-sync.service here: starting this unit would
+# otherwise terminate survive-sync.service mid-run.
+ExecCondition=/bin/sh -c '! systemctl -q is-active survive-sync.service'
 
 ExecStart=/srv/offline/scripts/sync/sync-books.sh \
     --config /srv/offline/scripts/config
