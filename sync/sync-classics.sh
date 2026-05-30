@@ -205,10 +205,13 @@ PY
 # --no-perms       : don't try to set NFS-side permissions on local dest
 # --omit-dir-times : don't fail on directory timestamp updates
 # --itemize-changes: one line per file so we can count adds/updates/deletes
+# --size-only      : media files are immutable here; avoid recopies when an old
+#                    destination file has the same size but a different mtime
 log "Syncing selected classics ${NFS_MOUNT} → ${DEST_DIR} ..."
 
 RSYNC_ARGS=(
     --archive
+    --size-only
     --delete
     --delete-excluded
     --no-perms

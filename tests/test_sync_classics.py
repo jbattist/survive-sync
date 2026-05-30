@@ -139,8 +139,14 @@ def test_dry_run_reports_deletes_without_modifying_destination():
         assert "DEL Old Deselected (1930)/movie.mkv" in result.stdout
 
 
+def test_rsync_uses_size_only_to_avoid_timestamp_only_recopies():
+    script = SCRIPT.read_text(encoding="utf-8")
+    assert "--size-only" in script
+
+
 if __name__ == "__main__":
     test_cached_manifest_syncs_only_selected_movies_and_deletes_deselected_content()
     test_radarr_refresh_writes_cached_manifest_from_survive_tag_before_sync()
     test_dry_run_reports_deletes_without_modifying_destination()
+    test_rsync_uses_size_only_to_avoid_timestamp_only_recopies()
     print("ok")
