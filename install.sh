@@ -223,6 +223,15 @@ else
     info "  yt-dlp: already installed ($(yt-dlp --version 2>/dev/null || echo unknown))"
 fi
 
+# rsync — used for NAS mirrors, including selective classics sync
+if ! command -v rsync &>/dev/null; then
+    info "  Installing rsync..."
+    pacman -S --noconfirm --needed rsync || \
+        warn "  rsync install failed — sync-classics.sh will use slower Python fallback"
+else
+    info "  rsync: already installed"
+fi
+
 # caddy — reverse proxy and portal web server
 if ! command -v caddy &>/dev/null; then
     info "  Installing caddy..."
@@ -656,6 +665,27 @@ mkdir -p "${SCRIPTS_DST}/portal"
 cp -r "${SCRIPT_DIR}/portal/." "${SCRIPTS_DST}/portal/"
 
 info "  Scripts and portal assets: OK"
+
+# Optional Radarr config for hybrid classics selection. Keep secrets out of git;
+# edit this file on the Pi to enable refreshes from the Radarr 'survive' tag.
+SURVIVE_ETC_DIR="/etc/survive-sync"
+CLASSICS_ENV_FILE="${SURVIVE_ETC_DIR}/classics.env"
+mkdir -p "${SURVIVE_ETC_DIR}"
+if [[ ! -f "${CLASSICS_ENV_FILE}" ]]; then
+    cat > "${CLASSICS_ENV_FILE}" <<'EOF'
+# Optional: enable selective classics refresh from Radarr tags.
+# The sync still uses /srv/offline/metadata/classics-survive-manifest.txt as a
+# cached manifest, so Radarr can be down after a successful refresh.
+# RADARR_URL="http://radarr.home:7878"
+# RADARR_API_KEY="replace-me"
+RADARR_SYNC_TAG="survive"
+EOF
+    info "  Created ${CLASSICS_ENV_FILE} template for Radarr classics sync"
+else
+    info "  ${CLASSICS_ENV_FILE}: already present"
+fi
+chown root:library "${CLASSICS_ENV_FILE}" 2>/dev/null || true
+chmod 0640 "${CLASSICS_ENV_FILE}" 2>/dev/null || true
 
 # ── step 5: download MapLibre GL JS (offline dependency) ─────────────────────
 info "Step 5: Downloading MapLibre GL JS for offline map viewer"

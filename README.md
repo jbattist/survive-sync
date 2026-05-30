@@ -11,6 +11,27 @@ Builds and maintains the **SURVIVE offline disaster library appliance** on a Ras
 - Ingests ebooks from Project Gutenberg, Standard Ebooks, and a TrueNAS NAS share
 - Serves everything via a web portal (Kiwix, Calibre, Jellyfin, MapLibre)
 
+## Selective classics movie sync
+
+Classics are now selected through Radarr tags but synced from a cached manifest so the Survive node is not hard-dependent on Radarr every run.
+
+1. Tag desired movies in Radarr with `survive`.
+2. On the Pi, configure `/etc/survive-sync/classics.env`:
+
+```bash
+RADARR_URL="http://radarr.home:7878"
+RADARR_API_KEY="..."
+RADARR_SYNC_TAG="survive"
+```
+
+3. Run a dry run first:
+
+```bash
+sudo -u library /srv/offline/scripts/sync/sync-classics.sh --dry-run
+```
+
+A real run refreshes `/srv/offline/metadata/classics-survive-manifest.txt`, copies selected classics, and intentionally deletes deselected/stale classics from `/srv/offline/video/classics/`.
+
 ## Guiding principle
 
 Simple, repairable, rebuildable. No Docker. Plain Linux services.
