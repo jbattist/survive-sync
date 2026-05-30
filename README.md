@@ -13,7 +13,19 @@ Builds and maintains the **SURVIVE offline disaster library appliance** on a Ras
 
 ## Selective classics movie sync
 
-Classics are now selected through Radarr tags but synced from a cached manifest so the Survive node is not hard-dependent on Radarr every run.
+Classics are selected through a Radarr tag, then mirrored from the TrueNAS classics NFS share to the Survive appliance. The Pi keeps a cached manifest so Radarr only has to be reachable when refreshing the selection; a later offline run can still sync from the last known-good list.
+
+Flow:
+
+```text
+Radarr movie tag: survive
+        ↓
+/etc/survive-sync/classics.env
+        ↓
+/srv/offline/metadata/classics-survive-manifest.txt
+        ↓
+rsync /mnt/media-classics/ → /srv/offline/video/classics/
+```
 
 1. Tag desired movies in Radarr with `survive`.
 2. On the Pi, configure `/etc/survive-sync/classics.env`:
@@ -24,13 +36,37 @@ RADARR_API_KEY="..."
 RADARR_SYNC_TAG="survive"
 ```
 
+Optional overrides:
+
+```bash
+CLASSICS_NFS_MOUNT="/mnt/media-classics"
+CLASSICS_DEST_DIR="/srv/offline/video/classics"
+CLASSICS_MANIFEST_FILE="/srv/offline/metadata/classics-survive-manifest.txt"
+CLASSICS_BWLIMIT="50000"   # KiB/s; set 0 for unlimited
+```
+
 3. Run a dry run first:
 
 ```bash
 sudo -u library /srv/offline/scripts/sync/sync-classics.sh --dry-run
 ```
 
-A real run refreshes `/srv/offline/metadata/classics-survive-manifest.txt`, copies selected classics, and intentionally deletes deselected/stale classics from `/srv/offline/video/classics/`.
+4. Run the real sync as the content owner:
+
+```bash
+sudo -u library /srv/offline/scripts/sync/sync-classics.sh
+```
+
+A real run refreshes `/srv/offline/metadata/classics-survive-manifest.txt`, copies only selected classics, and intentionally deletes deselected/stale classics from `/srv/offline/video/classics/` via `rsync --delete --delete-excluded`. Run the sync as `library` so manifests, logs, and media remain writable by the systemd units and future sync runs.
+
+Quick verification:
+
+```bash
+sudo wc -l /srv/offline/metadata/classics-survive-manifest.txt
+sudo find /srv/offline/video/classics -mindepth 1 -maxdepth 1 -type d | wc -l
+```
+
+For the current `survive` tag both counts should be `20`.
 
 ## Guiding principle
 

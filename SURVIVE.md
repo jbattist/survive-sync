@@ -94,8 +94,9 @@ No raw service ports are exposed to clients.
 │   ├── morale/
 │   ├── agriculture/
 │   ├── shelter/
-│   └── classics/       rsynced from /mnt/media-classics (TrueNAS NFS)
-├── metadata/           hash records used by sync-pdfs.sh (sha256sums-pdfs.txt)
+│   └── classics/       selected Radarr-tagged classics mirrored from /mnt/media-classics
+├── metadata/           hash records and cached manifests
+│   └── classics-survive-manifest.txt  cached Radarr `survive` tag selection
 ├── scripts/            sync scripts and configs (copied from this repo)
 └── logs/               sync-YYYY-MM-DD.log (one per day)
 ```
@@ -134,6 +135,7 @@ sudo bash install.sh
 2. Formats/mounts USB SSD at `/srv/offline` (ext4, label `survive-data`)
 2b. Configures NFS mount: adds `truenas.home:/mnt/hdd/books` → `/mnt/truenas-books` to `/etc/fstab` as a read-only automount; tests connectivity
 2c. Configures NFS mount: adds `truenas.home:/mnt/hdd/media-classics` → `/mnt/media-classics` to `/etc/fstab` as a read-only automount
+2d. Creates `/etc/survive-sync/classics.env` template for optional Radarr-tag selective classics sync
 3. Creates full directory structure under `/srv/offline`
 4. Initializes empty Calibre library (`metadata.db`)
 5. Copies scripts, configs, and portal assets
@@ -169,6 +171,34 @@ journalctl -u survive-books -f
 SYNC_MODULES='pdfs books' sudo systemctl start survive-sync.service
 # modules: zim pdfs books maps video classics
 ```
+
+### Run Classics Only (Radarr-tag selective movie mirror)
+
+Classics are selected in Radarr with the `survive` tag and mirrored from the read-only TrueNAS share at `/mnt/media-classics` to `/srv/offline/video/classics/`. The sync refreshes a cached manifest at `/srv/offline/metadata/classics-survive-manifest.txt`; if Radarr is unavailable but the manifest exists, it keeps using the cached list.
+
+Configure `/etc/survive-sync/classics.env` on the Pi:
+
+```bash
+RADARR_URL="http://radarr.home:7878"
+RADARR_API_KEY="..."
+RADARR_SYNC_TAG="survive"
+```
+
+Dry-run first, then run as the `library` content owner:
+
+```bash
+sudo -u library /srv/offline/scripts/sync/sync-classics.sh --dry-run
+sudo -u library /srv/offline/scripts/sync/sync-classics.sh
+```
+
+Verify selected count versus mirrored top-level directories:
+
+```bash
+sudo wc -l /srv/offline/metadata/classics-survive-manifest.txt
+sudo find /srv/offline/video/classics -mindepth 1 -maxdepth 1 -type d | wc -l
+```
+
+Deselected movies are intentionally removed from the Pi mirror with `rsync --delete --delete-excluded`. If old empty directories cannot be deleted, check for root-owned leftovers under `/srv/offline/video/classics` and restore ownership to `library:library`.
 
 ### Timers
 

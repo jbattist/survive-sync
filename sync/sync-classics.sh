@@ -13,6 +13,8 @@
 #     Casablanca (1942)/
 #
 # Deselected content is intentionally deleted from DEST_DIR by rsync --delete.
+# Run manual/debug invocations as the `library` user; root-owned leftovers in
+# DEST_DIR can prevent future `library` syncs from deleting deselected movies.
 # Called by sync-all.sh with:
 #   sync-classics.sh --log <log_file>
 set -euo pipefail

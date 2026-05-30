@@ -20,8 +20,10 @@ See `SURVIVE.md` for full architecture, install, and operations reference.
   - `sync-books.sh` scans the mount after the Gutenberg/StandardEbooks phase and ingests any `.epub` found
   - `survive-books.timer` runs `sync-books.sh` every 30 min so NAS books appear in Calibre quickly
 - **TrueNAS NFS classics share:** `truenas.home:/mnt/hdd/media-classics` → mounted at `/mnt/media-classics` (ro, automount)
-  - `install.sh` adds the fstab entry
-  - `sync-classics.sh` rsyncs all files to `/srv/offline/video/classics/` preserving folder structure
+  - `install.sh` adds the fstab entry and creates `/etc/survive-sync/classics.env` from a template
+  - `sync-classics.sh` refreshes `/srv/offline/metadata/classics-survive-manifest.txt` from movies tagged `survive` in Radarr, then mirrors only those directories to `/srv/offline/video/classics/`
+  - The cached manifest is the sync source of truth if Radarr is temporarily unavailable
+  - Deselected classics are intentionally deleted from the Pi mirror; run manual/debug syncs as `sudo -u library ...` so `/srv/offline` ownership stays clean
   - Wired into `sync-all.sh` as the `classics` module
 
 ## Workflow
@@ -81,5 +83,8 @@ A healthy sync run shows:
 - `[BOOK] SKIP slug (in library)` — already ingested, no action
 - `[BOOK] ADD title` — new download or NAS ingest
 - `[BOOK] FAIL slug` — download failed; check if URL is broken or transient
+- `[CLASSICS] Refreshed Radarr manifest: N movie(s) tagged survive` — Radarr tag refresh worked
+- `[CLASSICS] Using cached Radarr manifest ...` — Radarr unavailable/not configured but cached selection exists
+- `[CLASSICS] DEL ...` — expected when movies were deselected or stale empty dirs are cleaned up
 
 Logs live at `/srv/offline/logs/sync-YYYY-MM-DD.log` on the Pi.
