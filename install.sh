@@ -76,8 +76,21 @@ EOF
     chmod 0640 "${classics_env_file}" 2>/dev/null || true
 }
 
-# Create host-local config before long-running dependency work.
+stage_core_scripts_early() {
+    # Best-effort fast path for existing installs: update the sync scripts before
+    # slow dependency checks/builds so fixes like sync-classics.sh deploy even if
+    # a later package/build step needs attention. Full copy still happens in Step 4.
+    if [[ -d "${SCRIPTS_DST}/sync" ]]; then
+        cp -r "${SCRIPT_DIR}/sync/." "${SCRIPTS_DST}/sync/" 2>/dev/null || \
+            warn "  Early sync script copy failed; Step 4 will retry"
+        find "${SCRIPTS_DST}/sync" -maxdepth 1 -name "*.sh" -exec chmod +x {} + 2>/dev/null || true
+        info "  Early sync scripts: staged"
+    fi
+}
+
+# Create host-local config and stage script fixes before long-running dependency work.
 ensure_classics_env
+stage_core_scripts_early
 
 # ── step 1: check / install extra packages ────────────────────────────────────
 info "Step 1: Checking extra dependencies"
