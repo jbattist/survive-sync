@@ -144,9 +144,16 @@ def test_rsync_uses_size_only_to_avoid_timestamp_only_recopies():
     assert "--size-only" in script
 
 
+def test_rsync_filter_does_not_keep_all_directories():
+    script = SCRIPT.read_text(encoding="utf-8")
+    assert 'print("+ */")' not in script
+    assert "keeps\n        # deselected movie directories around" in script
+
+
 if __name__ == "__main__":
     test_cached_manifest_syncs_only_selected_movies_and_deletes_deselected_content()
     test_radarr_refresh_writes_cached_manifest_from_survive_tag_before_sync()
     test_dry_run_reports_deletes_without_modifying_destination()
     test_rsync_uses_size_only_to_avoid_timestamp_only_recopies()
+    test_rsync_filter_does_not_keep_all_directories()
     print("ok")

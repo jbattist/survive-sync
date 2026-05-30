@@ -186,7 +186,6 @@ import sys
 from pathlib import PurePosixPath
 
 manifest = sys.argv[1]
-print("+ */")
 with open(manifest, encoding="utf-8") as f:
     for raw in f:
         line = raw.strip()
@@ -195,6 +194,9 @@ with open(manifest, encoding="utf-8") as f:
         rel = line.strip("/")
         if rel.startswith("../") or "/../" in rel or rel in {"", ".."} or PurePosixPath(rel).is_absolute():
             raise SystemExit(f"Unsafe manifest path: {line!r}")
+        # The /*** form includes the selected directory and everything below it.
+        # Do NOT include a blanket "+ */" rule: with --delete-excluded it keeps
+        # deselected movie directories around as empty shells after deleting files.
         print(f"+ {rel}/***")
 print("- *")
 PY
