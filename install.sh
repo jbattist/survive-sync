@@ -52,6 +52,33 @@ SYSTEMD_DIR="/etc/systemd/system"
 CADDY_CONF="/etc/caddy/Caddyfile"
 NFTABLES_CONF="/etc/nftables.conf"
 
+ensure_classics_env() {
+    # Optional Radarr config for hybrid classics selection. Keep secrets out of
+    # git and create this before slow dependency checks so operators can configure
+    # Radarr even if a later install step needs attention.
+    local survive_etc_dir="/etc/survive-sync"
+    local classics_env_file="${survive_etc_dir}/classics.env"
+    mkdir -p "${survive_etc_dir}"
+    if [[ ! -f "${classics_env_file}" ]]; then
+        cat > "${classics_env_file}" <<'EOF'
+# Optional: enable selective classics refresh from Radarr tags.
+# The sync still uses /srv/offline/metadata/classics-survive-manifest.txt as a
+# cached manifest, so Radarr can be down after a successful refresh.
+# RADARR_URL="http://radarr.home:7878"
+# RADARR_API_KEY="replace-me"
+RADARR_SYNC_TAG="survive"
+EOF
+        info "  Created ${classics_env_file} template for Radarr classics sync"
+    else
+        info "  ${classics_env_file}: already present"
+    fi
+    chown root:library "${classics_env_file}" 2>/dev/null || true
+    chmod 0640 "${classics_env_file}" 2>/dev/null || true
+}
+
+# Create host-local config before long-running dependency work.
+ensure_classics_env
+
 # ── step 1: check / install extra packages ────────────────────────────────────
 info "Step 1: Checking extra dependencies"
 
@@ -77,7 +104,20 @@ install_aur_pkg() {
 # tilemaker — converts OSM PBF to MBTiles
 # The AUR package declares arch=('x86_64') only, so on aarch64 (Pi 5) we build from source.
 install_tilemaker() {
-    if command -v tilemaker &>/dev/null && tilemaker --version &>/dev/null 2>&1; then
+    tilemaker_binary_usable() {
+        local bin
+        bin=$(command -v tilemaker 2>/dev/null) || return 1
+        # Version/help flags have changed across tilemaker builds. For install
+        # idempotence, treat an existing binary with all shared libraries
+        # resolved as usable; rebuild only when the dynamic linker reports a
+        # missing dependency.
+        if command -v ldd &>/dev/null && ldd "${bin}" 2>/dev/null | grep -q "not found"; then
+            return 1
+        fi
+        return 0
+    }
+
+    if tilemaker_binary_usable; then
         info "  tilemaker: already installed"
         return 0
     elif command -v tilemaker &>/dev/null; then
@@ -666,26 +706,9 @@ cp -r "${SCRIPT_DIR}/portal/." "${SCRIPTS_DST}/portal/"
 
 info "  Scripts and portal assets: OK"
 
-# Optional Radarr config for hybrid classics selection. Keep secrets out of git;
-# edit this file on the Pi to enable refreshes from the Radarr 'survive' tag.
-SURVIVE_ETC_DIR="/etc/survive-sync"
-CLASSICS_ENV_FILE="${SURVIVE_ETC_DIR}/classics.env"
-mkdir -p "${SURVIVE_ETC_DIR}"
-if [[ ! -f "${CLASSICS_ENV_FILE}" ]]; then
-    cat > "${CLASSICS_ENV_FILE}" <<'EOF'
-# Optional: enable selective classics refresh from Radarr tags.
-# The sync still uses /srv/offline/metadata/classics-survive-manifest.txt as a
-# cached manifest, so Radarr can be down after a successful refresh.
-# RADARR_URL="http://radarr.home:7878"
-# RADARR_API_KEY="replace-me"
-RADARR_SYNC_TAG="survive"
-EOF
-    info "  Created ${CLASSICS_ENV_FILE} template for Radarr classics sync"
-else
-    info "  ${CLASSICS_ENV_FILE}: already present"
-fi
-chown root:library "${CLASSICS_ENV_FILE}" 2>/dev/null || true
-chmod 0640 "${CLASSICS_ENV_FILE}" 2>/dev/null || true
+# Re-assert permissions after script deployment; the file itself is created early
+# before long dependency checks.
+ensure_classics_env
 
 # ── step 5: download MapLibre GL JS (offline dependency) ─────────────────────
 info "Step 5: Downloading MapLibre GL JS for offline map viewer"
